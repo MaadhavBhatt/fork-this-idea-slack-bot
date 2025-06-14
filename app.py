@@ -6,31 +6,52 @@ from slack_bolt.adapter.socket_mode import SocketModeHandler
 app = App(token=os.environ.get("SLACK_BOT_TOKEN"))
 
 
-# Listens to incoming messages that contain "hello"
-@app.message("hello")
-def message_hello(message, say):
-    # say() sends a message to the channel where the event was triggered
-    say(
-        blocks=[
-            {
-                "type": "section",
-                "text": {"type": "mrkdwn", "text": f"Hey there <@{message['user']}>!"},
-                "accessory": {
-                    "type": "button",
-                    "text": {"type": "plain_text", "text": "Click Me"},
-                    "action_id": "button_click",
-                },
-            }
-        ],
-        text=f"Hey there <@{message['user']}>!",
-    )
-
-
-@app.action("button_click")
-def action_button_click(body, ack, say):
-    # Acknowledge the action
+@app.command("/forkthisidea")
+def handle_command(ack, body, say, client):
+    # Acknowledge the command request immediately
     ack()
-    say(f"<@{body['user']['id']}> clicked the button")
+
+    # Get the command text
+    command_text = body.get("text", "").strip()
+
+    if command_text:
+        # Separate command_text into parts before and after hyphen
+        if "-" in command_text:
+            title, description = command_text.split("-", 1)
+            title = title.strip()
+            description = description.strip()
+        else:
+            title = command_text
+            description = ""
+
+        # Say hello to the user who invoked the command
+        say(
+            blocks=[
+                {
+                    "type": "section",
+                    "text": {
+                        "type": "mrkdwn",
+                        "text": f"<@{body['user_id']}> submitted an idea *{title}: {description}*",
+                    },
+                }
+            ],
+            text=f"<@{body['user_id']}> submitted an idea {title}: {description}",
+        )
+    else:
+        client.chat_postEphemeral(
+            user=body["user_id"],
+            channel=body["channel_id"],
+            blocks=[
+                {
+                    "type": "section",
+                    "text": {
+                        "type": "mrkdwn",
+                        "text": f"Hello <@{body['user_id']}>! Please provide an idea with your command.",
+                    },
+                }
+            ],
+            text=f"Hello <@{body['user_id']}>! Please provide an idea with your command.",
+        )
 
 
 # Start your app
