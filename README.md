@@ -1,31 +1,13 @@
-# fork-this-idea
+# Fork This Idea (Slack Bot)
 
-Bluesky, but for project ideas.
+A Slack bot for submitting and voting on ideas, built with Python. Submitted ideas are stored in a Firebase database, and displayed on a web page developed [here](https://github.com/yajurrsharma/fork-this-idea-website).
 
-## Project setup
+## MVP Features
 
-```
-npm install
-```
+- Submit ideas
+- Vote on ideas
 
-### Compiles and hot-reloads for development
+## Future Features
 
-```
-npm run serve
-```
-
-### Compiles and minifies for production
-
-```
-npm run build
-```
-
-### Lints and fixes files
-
-```
-npm run lint
-```
-
-### Customize configuration
-
-See [Configuration Reference](https://cli.vuejs.org/config/).
+- View top ideas
+- View recent ideas
