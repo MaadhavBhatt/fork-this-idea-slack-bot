@@ -4,7 +4,7 @@ A Slack bot for submitting and voting on ideas, built with Python. Submitted ide
 
 The Slack bot component of this project is being developed under the Thunder You-Ship-We-Ship by [Hack Club](https://hackclub.com/).
 
-I'm following the tutorial from [Slack Developer Tools](https://tools.slack.dev/bolt-python/`) in the initial stages.
+I'm following the tutorial from [Slack Developer Tools](https://tools.slack.dev/bolt-python/) in the initial stages.
 
 ## MVP Features
 
