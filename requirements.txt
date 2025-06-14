@@ -1,0 +1,9 @@
+black==25.1.0
+click==8.2.1
+colorama==0.4.6
+mypy_extensions==1.1.0
+packaging==25.0
+pathspec==0.12.1
+platformdirs==4.3.8
+slack_bolt==1.23.0
+slack_sdk==3.35.0
