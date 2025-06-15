@@ -4,15 +4,35 @@ from slack_bolt.adapter.socket_mode import SocketModeHandler
 import firebase_admin
 from firebase_admin import credentials, db
 
+ENV_VARS_CHECKED = False
+
+
+def check_environment_variables():
+    required_vars = [
+        "SLACK_BOT_TOKEN",
+        "SLACK_APP_TOKEN",
+        "FIREBASE_URL",
+        "FIREBASE_CREDENTIALS_PATH",
+    ]
+
+    for var in required_vars:
+        if os.environ.get(var) is None:
+            raise ValueError(f"{var} environment variable is not set.")
+
+    if not os.path.exists(os.environ.get("FIREBASE_CREDENTIALS_PATH")):
+        raise ValueError(
+            "Firebase credentials file not found at path given by FIREBASE_CREDENTIALS_PATH environment variable."
+        )
+
+    global ENV_VARS_CHECKED
+    ENV_VARS_CHECKED = True
+
 
 def initialize_firebase():
-    if os.environ.get("FIREBASE_CREDENTIALS"):
-        cred = credentials.Certificate(os.environ.get("FIREBASE_CREDENTIALS"))
-    else:
-        cred_path = "firebase-credentials.json"
-        if os.path.exists(cred_path):
-            cred = credentials.Certificate(cred_path)
+    if not ENV_VARS_CHECKED:
+        check_environment_variables()
 
+    cred = credentials.Certificate(os.environ.get("FIREBASE_CREDENTIALS_PATH"))
     firebase_admin.initialize_app(cred, {"databaseURL": os.environ.get("FIREBASE_URL")})
 
     return db
@@ -120,4 +140,6 @@ def handle_command(ack, body, say, client):
 
 
 if __name__ == "__main__":
+    if not ENV_VARS_CHECKED:
+        check_environment_variables()
     SocketModeHandler(app, os.environ["SLACK_APP_TOKEN"]).start()
