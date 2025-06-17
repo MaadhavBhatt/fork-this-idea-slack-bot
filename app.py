@@ -60,6 +60,76 @@ def add_idea_to_firebase(user_id, title, description):
     return new_idea_ref.key
 
 
+def get_idea_from_firebase(idea_id):
+    if not firebase_admin._apps:
+        initialize_firebase()
+
+    # Get a database reference
+    ref = db.reference(f"/ideas/{idea_id}")
+
+    # Retrieve the idea data
+    idea_data = ref.get()
+
+    if idea_data is None:
+        return None
+
+    return {
+        "id": idea_id,
+        "user_id": idea_data["user_id"],
+        "title": idea_data["title"],
+        "description": idea_data["description"],
+    }
+
+
+def get_all_ideas_from_firebase():
+    if not firebase_admin._apps:
+        initialize_firebase()
+
+    # Get a database reference
+    ref = db.reference("/ideas")
+
+    # Retrieve all ideas
+    ideas_data = ref.get()
+
+    if ideas_data is None:
+        return []
+
+    # Convert to list of dictionaries
+    ideas_list = []
+    for idea_id, idea in ideas_data.items():
+        ideas_list.append(
+            {
+                "id": idea_id,
+                "user_id": idea["user_id"],
+                "title": idea["title"],
+                "description": idea["description"],
+            }
+        )
+
+    return ideas_list
+
+
+def get_ideas_by_user_from_firebase(user_id):
+    if not firebase_admin._apps:
+        initialize_firebase()
+
+    return [
+        idea for idea in get_all_ideas_from_firebase() if idea["user_id"] == user_id
+    ]
+
+
+def get_idea_count_from_firebase(user_id=None):
+    if not firebase_admin._apps:
+        initialize_firebase()
+
+    if user_id:
+        ideas = get_ideas_by_user_from_firebase(user_id)
+        return len(ideas)
+    else:
+        ideas = get_all_ideas_from_firebase()
+        return len(ideas)
+
+
 # Initializes your app with your bot token and socket mode handler
 app = App(
     token=os.environ.get("SLACK_BOT_TOKEN"),
