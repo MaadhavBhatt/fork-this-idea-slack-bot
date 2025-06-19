@@ -1,5 +1,6 @@
 import os
 from slack_bolt import App
+from slack_bolt.adapter.socket_mode import SocketModeHandler
 import firebase_admin
 from firebase_admin import credentials, db
 
@@ -10,10 +11,8 @@ def check_environment_variables():
     required_vars = [
         "SLACK_BOT_TOKEN",
         "SLACK_APP_TOKEN",
-        "SLACK_SIGNING_SECRET",
         "FIREBASE_URL",
         "FIREBASE_CREDENTIALS_PATH",
-        "PORT",
     ]
 
     for var in required_vars:
@@ -131,10 +130,7 @@ def get_idea_count_from_firebase(user_id=None):
 
 
 # Initializes your app with your bot token and socket mode handler
-app = App(
-    token=os.environ.get("SLACK_BOT_TOKEN"),
-    signing_secret=os.environ.get("SLACK_SIGNING_SECRET"),
-)
+app = App(token=os.environ.get("SLACK_BOT_TOKEN"))
 
 
 @app.command("/forkthisidea")
@@ -216,4 +212,4 @@ def handle_command(ack, body, say, client):
 if __name__ == "__main__":
     if not ENV_VARS_CHECKED:
         check_environment_variables()
-    app.start(port=int(os.environ.get("PORT", 3000)))
+    SocketModeHandler(app, os.environ["SLACK_APP_TOKEN"]).start()
