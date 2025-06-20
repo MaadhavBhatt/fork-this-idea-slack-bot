@@ -133,27 +133,22 @@ def get_idea_count_from_firebase(user_id=None):
 app = App(token=os.environ.get("SLACK_BOT_TOKEN"))
 
 
-@app.command("/forkthisidea")
 def handle_command(ack, body, say, client):
     # Acknowledge the command request immediately
     ack()
 
-    say(
-        response_type="in_channel",
-        blocks=[
-            {
-                "type": "section",
-                "text": {
-                    "type": "mrkdwn",
-                    "text": f"<@{body['user_id']}> invoked the command with text: {body.get('text', '')}",
-                },
-            }
-        ],
+    user_id = body.get("user_id") or body["event"].get("user", "unknown_user")
+    channel_id = body.get("channel_id") or body["event"].get(
+        "channel", "unknown_channel"
     )
-
-    command_text = body.get("text", "").strip()
+    command_text = body.get("text", "").strip() or body["event"].get("text", "").strip()
 
     if command_text:
+        if command_text.upper().startswith("PI:"):
+            command_text = command_text[3:].strip()
+        elif command_text.upper().startswith("PI"):
+            command_text = command_text[2:].strip()
+
         if "|" in command_text:
             title, description = command_text.split("|", 1)
             title = title.strip()
@@ -162,7 +157,7 @@ def handle_command(ack, body, say, client):
             title = command_text
             description = ""
 
-        idea_id = add_idea_to_firebase(body["user_id"], title, description)
+        idea_id = add_idea_to_firebase(user_id, title, description)
 
         say(
             response_type="in_channel",
@@ -171,42 +166,48 @@ def handle_command(ack, body, say, client):
                     "type": "section",
                     "text": {
                         "type": "mrkdwn",
-                        "text": f"<@{body['user_id']}> submitted an idea *{title}: {description}*",
+                        "text": f"<@{user_id}> submitted an idea *{title}: {description}*",
                     },
                 }
             ],
-            text=f"<@{body['user_id']}> submitted an idea {title}: {description}",
+            text=f"<@{user_id}> submitted an idea {title}: {description}",
         )
 
         client.chat_postEphemeral(
-            user=body["user_id"],
-            channel=body["channel_id"],
+            user=user_id,
+            channel=channel_id,
             blocks=[
                 {
                     "type": "section",
                     "text": {
                         "type": "mrkdwn",
-                        "text": f"Thank you <@{body['user_id']}>! Your idea has been submitted.",
+                        "text": f"Thank you <@{user_id}>! Your idea has been submitted.",
                     },
                 }
             ],
-            text=f"Thank you <@{body['user_id']}>! Your idea has been submitted.",
+            text=f"Thank you <@{user_id}>! Your idea has been submitted.",
         )
     else:
         client.chat_postEphemeral(
-            user=body["user_id"],
-            channel=body["channel_id"],
+            user=user_id,
+            channel=channel_id,
             blocks=[
                 {
                     "type": "section",
                     "text": {
                         "type": "mrkdwn",
-                        "text": f"Hello <@{body['user_id']}>! Please provide an idea with your command.",
+                        "text": f"Hello <@{user_id}>! Please provide an idea with your command.",
                     },
                 }
             ],
-            text=f"Hello <@{body['user_id']}>! Please provide an idea with your command.",
+            text=f"Hello <@{user_id}>! Please provide an idea with your command.",
         )
+
+
+app.message("PI:")(handle_command)
+app.message("Pi:")(handle_command)
+app.message("pi:")(handle_command)
+app.command("/forkthisidea")(handle_command)
 
 
 if __name__ == "__main__":
