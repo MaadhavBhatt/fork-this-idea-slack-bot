@@ -7,6 +7,17 @@ from firebase_admin import credentials, db
 ENV_VARS_CHECKED = False
 
 
+IDEA_SUBMISSION_DETAILS = lambda user_id, title, description: (
+    f"<@{user_id}> submitted an idea *{title}: {description}*"
+)
+IDEA_SUBMISSION_SUCCESS = lambda user_id: (
+    f"Thank you <@{user_id}>! Your idea has been submitted."
+)
+IDEA_SUBMISSION_EMPTY = lambda user_id: (
+    f"Hello <@{user_id}>! Please provide an idea with your command."
+)
+
+
 def check_environment_variables():
     required_vars = [
         "SLACK_BOT_TOKEN",
@@ -129,10 +140,6 @@ def get_idea_count_from_firebase(user_id=None):
         return len(ideas)
 
 
-# Initializes your app with your bot token and socket mode handler
-app = App(token=os.environ.get("SLACK_BOT_TOKEN"))
-
-
 def extract_idea_from_command(command_text):
     if command_text.upper().startswith("PI:"):
         command_text = command_text[3:].strip()
@@ -150,7 +157,46 @@ def extract_idea_from_command(command_text):
     return title, description
 
 
-def handle_command(ack, body, say, client):
+# Initializes your app with your bot token and socket mode handler
+app = App(token=os.environ.get("SLACK_BOT_TOKEN"))
+
+
+def send_ephemeral_message(client, user_id, channel_id, message, thread_ts=None):
+    client.chat_postEphemeral(
+        user=user_id,
+        channel=channel_id,
+        thread_ts=thread_ts,
+        blocks=[
+            {
+                "type": "section",
+                "text": {
+                    "type": "mrkdwn",
+                    "text": f"{message}",
+                },
+            }
+        ],
+        text=f"{message}",
+    )
+
+
+def send_channel_message(client, channel_id, message, thread_ts=None):
+    client.chat_postMessage(
+        channel=channel_id,
+        thread_ts=thread_ts,
+        blocks=[
+            {
+                "type": "section",
+                "text": {
+                    "type": "mrkdwn",
+                    "text": f"{message}",
+                },
+            }
+        ],
+        text=message,
+    )
+
+
+def handle_message(ack, body, say, client):
     # Acknowledge the command request immediately
     ack()
 
@@ -158,6 +204,7 @@ def handle_command(ack, body, say, client):
     channel_id = body.get("channel_id") or body["event"].get(
         "channel", "unknown_channel"
     )
+    thread_ts = body.get("thread_ts")
     command_text = body.get("text", "").strip() or body["event"].get("text", "").strip()
 
     if command_text:
@@ -165,57 +212,37 @@ def handle_command(ack, body, say, client):
         add_idea_to_firebase(user_id, title, description)
 
         # Send a message to the channel with the idea submission
-        say(
-            response_type="in_channel",
-            blocks=[
-                {
-                    "type": "section",
-                    "text": {
-                        "type": "mrkdwn",
-                        "text": f"<@{user_id}> submitted an idea *{title}: {description}*",
-                    },
-                }
-            ],
-            text=f"<@{user_id}> submitted an idea {title}: {description}",
+        send_channel_message(
+            client,
+            channel_id,
+            IDEA_SUBMISSION_DETAILS(user_id, title, description),
+            thread_ts,
         )
 
         # Send an ephemeral message to the user who submitted the idea
-        client.chat_postEphemeral(
-            user=user_id,
-            channel=channel_id,
-            blocks=[
-                {
-                    "type": "section",
-                    "text": {
-                        "type": "mrkdwn",
-                        "text": f"Thank you <@{user_id}>! Your idea has been submitted.",
-                    },
-                }
-            ],
-            text=f"Thank you <@{user_id}>! Your idea has been submitted.",
+        send_ephemeral_message(
+            client,
+            user_id,
+            channel_id,
+            IDEA_SUBMISSION_SUCCESS(user_id),
+            thread_ts,
         )
     else:
         # If no command text is provided, send an ephemeral message to the user
-        client.chat_postEphemeral(
-            user=user_id,
-            channel=channel_id,
-            blocks=[
-                {
-                    "type": "section",
-                    "text": {
-                        "type": "mrkdwn",
-                        "text": f"Hello <@{user_id}>! Please provide an idea with your command.",
-                    },
-                }
-            ],
-            text=f"Hello <@{user_id}>! Please provide an idea with your command.",
+        send_ephemeral_message(
+            client,
+            user_id,
+            channel_id,
+            IDEA_SUBMISSION_EMPTY(user_id),
+            thread_ts,
         )
 
 
-app.message("PI:")(handle_command)
-app.message("Pi:")(handle_command)
-app.message("pi:")(handle_command)
-app.command("/forkthisidea")(handle_command)
+# Register the command handler for the /forkthisidea command and PI prefixed messages
+app.message("PI:")(handle_message)
+app.message("Pi:")(handle_message)
+app.message("pi:")(handle_message)
+app.command("/forkthisidea")(handle_message)
 
 
 if __name__ == "__main__":
