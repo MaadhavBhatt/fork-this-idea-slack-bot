@@ -133,6 +133,23 @@ def get_idea_count_from_firebase(user_id=None):
 app = App(token=os.environ.get("SLACK_BOT_TOKEN"))
 
 
+def extract_idea_from_command(command_text):
+    if command_text.upper().startswith("PI:"):
+        command_text = command_text[3:].strip()
+    elif command_text.upper().startswith("PI"):
+        command_text = command_text[2:].strip()
+
+    if "|" in command_text:
+        title, description = command_text.split("|", 1)
+        title = title.strip()
+        description = description.strip()
+    else:
+        title = command_text
+        description = ""
+
+    return title, description
+
+
 def handle_command(ack, body, say, client):
     # Acknowledge the command request immediately
     ack()
@@ -144,21 +161,10 @@ def handle_command(ack, body, say, client):
     command_text = body.get("text", "").strip() or body["event"].get("text", "").strip()
 
     if command_text:
-        if command_text.upper().startswith("PI:"):
-            command_text = command_text[3:].strip()
-        elif command_text.upper().startswith("PI"):
-            command_text = command_text[2:].strip()
+        title, description = extract_idea_from_command(command_text)
+        add_idea_to_firebase(user_id, title, description)
 
-        if "|" in command_text:
-            title, description = command_text.split("|", 1)
-            title = title.strip()
-            description = description.strip()
-        else:
-            title = command_text
-            description = ""
-
-        idea_id = add_idea_to_firebase(user_id, title, description)
-
+        # Send a message to the channel with the idea submission
         say(
             response_type="in_channel",
             blocks=[
@@ -173,6 +179,7 @@ def handle_command(ack, body, say, client):
             text=f"<@{user_id}> submitted an idea {title}: {description}",
         )
 
+        # Send an ephemeral message to the user who submitted the idea
         client.chat_postEphemeral(
             user=user_id,
             channel=channel_id,
@@ -188,6 +195,7 @@ def handle_command(ack, body, say, client):
             text=f"Thank you <@{user_id}>! Your idea has been submitted.",
         )
     else:
+        # If no command text is provided, send an ephemeral message to the user
         client.chat_postEphemeral(
             user=user_id,
             channel=channel_id,
