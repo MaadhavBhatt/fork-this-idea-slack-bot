@@ -6,7 +6,20 @@ from firebase_admin import credentials, db
 
 ENV_VARS_CHECKED = False
 
-
+# SUBCOMMANDS = {
+#     "fetch": ["recent", "<user-id>", "all"],
+#     "count": ["<user-id>"],
+#     "help": [],
+# }
+SUBCOMMANDS = {
+    "fetch": None,
+    "count": None,
+    "help": None,
+}
+INVALID_COMMAND = lambda user_id: (
+    f"Hi {user_id}! That was an invalid command. Please use one of the following commands: "
+    + ", ".join(SUBCOMMANDS.keys())
+)
 IDEA_SUBMISSION_DETAILS = lambda user_id, title, description: (
     f"<@{user_id}> submitted an idea *{title}: {description}*"
 )
@@ -15,6 +28,15 @@ IDEA_SUBMISSION_SUCCESS = lambda user_id: (
 )
 IDEA_SUBMISSION_EMPTY = lambda user_id: (
     f"Hello <@{user_id}>! Please provide an idea with your command."
+)
+HELP_MESSAGE = lambda user_id: (
+    f"Hello <@{user_id}>! Here are the available commands:\n"
+    f"- 'PI: <title> | <description>' to submit an idea. You can use 'Pi:' and 'pi:' as well.\n"
+    f"- '/forkthisidea fetch' to fetch the most recent idea.\n"
+    f"- '/forkthisidea count' to get the count of ideas submitted by you.\n"
+    f"- '/forkthisidea help' to see this help message.\n"
+    f"Make sure to use the correct format for your ideas. For example: 'PI: My Idea | This is a description of my idea.'"
+    f"If you need help, just type '/forkthisidea help'."
 )
 
 
@@ -134,10 +156,9 @@ def get_idea_count_from_firebase(user_id=None):
 
     if user_id:
         ideas = get_ideas_by_user_from_firebase(user_id)
-        return len(ideas)
     else:
         ideas = get_all_ideas_from_firebase()
-        return len(ideas)
+    return len(ideas)
 
 
 def extract_idea_from_command(command_text):
@@ -196,6 +217,68 @@ def send_channel_message(client, channel_id, message, thread_ts=None):
     )
 
 
+def handle_subcommand(subcommand, user_id, client, channel_id, thread_ts=None):
+    message = ""
+    if subcommand == "fetch":
+        # Fetch the most recent idea
+        ideas = get_all_ideas_from_firebase()
+        if ideas:
+            latest_idea = ideas[-1]
+            message = (
+                f"Latest idea: *{latest_idea['title']}* - {latest_idea['description']}"
+            )
+
+        else:
+            message = "No ideas found."
+    elif subcommand == "count":
+        # Count the number of ideas submitted by the user
+        ideas_count = get_idea_count_from_firebase(user_id)
+        message = f"You have submitted {ideas_count} ideas."
+    elif subcommand == "help":
+        # Provide help message
+        message = HELP_MESSAGE(user_id)
+    else:
+        # Invalid subcommand
+        message = INVALID_COMMAND(user_id)
+
+    client.chat_postEphemeral(
+        user=user_id,
+        channel=channel_id,
+        thread_ts=thread_ts,
+        blocks=[
+            {
+                "type": "section",
+                "text": {
+                    "type": "mrkdwn",
+                    "text": f"{message}",
+                },
+            }
+        ],
+        text=message,
+    )
+
+
+@app.command("/forkthisidea")
+def handle_command(ack, body, client):
+    ack()
+
+    user_id = body.get("user_id", "unknown_user")
+    channel_id = body.get("channel_id", "unknown_channel")
+    thread_ts = body.get("thread_ts")
+    command_text = body.get("text", "").strip()
+
+    # Check if the command text starts with a valid subcommand
+    parts = command_text.split()
+
+    if not len(parts) > 0:
+        # If no subcommand is provided, send an ephemeral message to the user
+        send_ephemeral_message(client, user_id, channel_id, INVALID_COMMAND(user_id))
+        return
+
+    subcommand = parts[0].lower().strip()
+    handle_subcommand(subcommand, user_id, client, channel_id, thread_ts)
+
+
 def handle_message(ack, body, say, client):
     # Acknowledge the command request immediately
     ack()
@@ -242,7 +325,6 @@ def handle_message(ack, body, say, client):
 app.message("PI:")(handle_message)
 app.message("Pi:")(handle_message)
 app.message("pi:")(handle_message)
-app.command("/forkthisidea")(handle_message)
 
 
 if __name__ == "__main__":
