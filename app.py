@@ -1,4 +1,5 @@
 import os
+import time
 from slack_bolt import App
 from slack_bolt.adapter.socket_mode import SocketModeHandler
 import firebase_admin
@@ -20,8 +21,8 @@ INVALID_COMMAND = lambda user_id: (
     f"Hi {user_id}! That was an invalid command. Please use one of the following commands: "
     + ", ".join(SUBCOMMANDS.keys())
 )
-IDEA_SUBMISSION_DETAILS = lambda user_id, title, description: (
-    f"<@{user_id}> submitted an idea *{title}: {description}*"
+IDEA_SUBMISSION_DETAILS = lambda user_id, title, description, timestamp: (
+    f"<@{user_id}> submitted an idea *{title}: {description}* at {time.strftime('%Y-%m-%d %H:%M:%S UTC', time.gmtime(timestamp))}"
 )
 IDEA_SUBMISSION_SUCCESS = lambda user_id: (
     f"Thank you <@{user_id}>! Your idea has been submitted."
@@ -71,7 +72,7 @@ def initialize_firebase():
     return db
 
 
-def add_idea_to_firebase(user_id, title, description):
+def add_idea_to_firebase(user_id, title, description, timestamp=int(time.time())):
     if not firebase_admin._apps:
         initialize_firebase()
 
@@ -83,6 +84,7 @@ def add_idea_to_firebase(user_id, title, description):
         "user_id": user_id,
         "title": title,
         "description": description,
+        "timestamp": timestamp,
     }
 
     # Push data (creates a new entry with auto-generated ID)
@@ -135,6 +137,7 @@ def get_all_ideas_from_firebase():
                 "user_id": idea["user_id"],
                 "title": idea["title"],
                 "description": idea["description"],
+                "timestamp": idea.get("timestamp", None),
             }
         )
 
@@ -279,7 +282,7 @@ def handle_command(ack, body, client):
     handle_subcommand(subcommand, user_id, client, channel_id, thread_ts)
 
 
-def handle_message(ack, body, say, client):
+def handle_message(ack, body, client):
     # Acknowledge the command request immediately
     ack()
 
@@ -287,18 +290,21 @@ def handle_message(ack, body, say, client):
     channel_id = body.get("channel_id") or body["event"].get(
         "channel", "unknown_channel"
     )
-    thread_ts = body.get("thread_ts")
+    thread_ts = body.get("thread_ts") or body["event"].get("ts", None)
     command_text = body.get("text", "").strip() or body["event"].get("text", "").strip()
+    timestamp = int(float(body["event"].get("ts", time.time())))
+    print(int(float(body["event"].get("ts", None))))
+    print(body)
 
     if command_text:
         title, description = extract_idea_from_command(command_text)
-        add_idea_to_firebase(user_id, title, description)
+        add_idea_to_firebase(user_id, title, description, timestamp)
 
         # Send a message to the channel with the idea submission
         send_channel_message(
             client,
             channel_id,
-            IDEA_SUBMISSION_DETAILS(user_id, title, description),
+            IDEA_SUBMISSION_DETAILS(user_id, title, description, timestamp),
             thread_ts,
         )
 
@@ -321,7 +327,7 @@ def handle_message(ack, body, say, client):
         )
 
 
-# Register the command handler for the /forkthisidea command and PI prefixed messages
+# Register the message handler for PI prefixed messages
 app.message("PI:")(handle_message)
 app.message("Pi:")(handle_message)
 app.message("pi:")(handle_message)
