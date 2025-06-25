@@ -7,15 +7,10 @@ from firebase_admin import credentials, db
 
 ENV_VARS_CHECKED = False
 
-# SUBCOMMANDS = {
-#     "fetch": ["recent", "<user-id>", "all"],
-#     "count": ["<user-id>"],
-#     "help": [],
-# }
 SUBCOMMANDS = {
-    "fetch": None,
-    "count": None,
-    "help": None,
+    "fetch": ["recent", "<user-id>", "all"],
+    "count": ["<user-id>"],
+    "help": [],
 }
 INVALID_COMMAND = lambda user_id: (
     f"Hi {user_id}! That was an invalid command. Please use one of the following commands: "
@@ -72,7 +67,9 @@ def initialize_firebase():
     return db
 
 
-def add_idea_to_firebase(user_id, title, description, timestamp=int(time.time())):
+def add_idea_to_firebase(
+    user_id, user_name, title, description, timestamp=int(time.time())
+):
     if not firebase_admin._apps:
         initialize_firebase()
 
@@ -82,9 +79,11 @@ def add_idea_to_firebase(user_id, title, description, timestamp=int(time.time())
     # Create data object
     idea_data = {
         "user_id": user_id,
+        "user_name": user_name,
         "title": title,
         "description": description,
         "timestamp": timestamp,
+        "votes": 0,
     }
 
     # Push data (creates a new entry with auto-generated ID)
@@ -138,6 +137,7 @@ def get_all_ideas_from_firebase():
                 "title": idea["title"],
                 "description": idea["description"],
                 "timestamp": idea.get("timestamp", None),
+                "votes": idea.get("votes", 0),
             }
         )
 
@@ -179,6 +179,22 @@ def extract_idea_from_command(command_text):
         description = ""
 
     return title, description
+
+
+def get_user_name_from_id(client, user_id):
+    try:
+        result = client.users_info(user=user_id)
+        user = result["user"]
+        display_name = user.get("profile", {}).get("display_name", "")
+        real_name = user.get("profile", {}).get("real_name", "")
+        return display_name if display_name else real_name or user_id
+    except Exception as e:
+        print(f"Error fetching user info for {user_id}: {e}")
+        return user_id
+
+
+def update_votes(idea_id):
+    pass
 
 
 # Initializes your app with your bot token and socket mode handler
@@ -293,12 +309,11 @@ def handle_message(ack, body, client):
     thread_ts = body.get("thread_ts") or body["event"].get("ts", None)
     command_text = body.get("text", "").strip() or body["event"].get("text", "").strip()
     timestamp = int(float(body["event"].get("ts", time.time())))
-    print(int(float(body["event"].get("ts", None))))
-    print(body)
 
     if command_text:
         title, description = extract_idea_from_command(command_text)
-        add_idea_to_firebase(user_id, title, description, timestamp)
+        user_name = get_user_name_from_id(client, user_id)
+        add_idea_to_firebase(user_id, user_name, title, description, timestamp)
 
         # Send a message to the channel with the idea submission
         send_channel_message(
