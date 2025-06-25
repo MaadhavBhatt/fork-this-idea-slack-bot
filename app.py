@@ -7,6 +7,9 @@ from firebase_admin import credentials, db
 
 ENV_VARS_CHECKED = False
 
+UPVOTE_EMOJI = "upvote"
+DOWNVOTE_EMOJI = "downvote"
+
 SUBCOMMANDS = {
     "fetch": ["recent", "<user-id>", "all"],
     "count": ["<user-id>"],
@@ -33,6 +36,9 @@ HELP_MESSAGE = lambda user_id: (
     f"- '/forkthisidea help' to see this help message.\n"
     f"Make sure to use the correct format for your ideas. For example: 'PI: My Idea | This is a description of my idea.'"
     f"If you need help, just type '/forkthisidea help'."
+)
+ERROR_MESSAGE = lambda error: (
+    f"An error occurred: {error}. Please try again later or contact support."
 )
 
 
@@ -67,9 +73,7 @@ def initialize_firebase():
     return db
 
 
-def add_idea_to_firebase(
-    user_id, user_name, title, description, timestamp=int(time.time())
-):
+def add_idea_to_firebase(user_id, user_name, title, description, timestamp):
     if not firebase_admin._apps:
         initialize_firebase()
 
@@ -83,7 +87,7 @@ def add_idea_to_firebase(
         "title": title,
         "description": description,
         "timestamp": timestamp,
-        "votes": 0,
+        "votes": [0, 0],  # [upvotes, downvotes]
     }
 
     # Push data (creates a new entry with auto-generated ID)
@@ -137,7 +141,7 @@ def get_all_ideas_from_firebase():
                 "title": idea["title"],
                 "description": idea["description"],
                 "timestamp": idea.get("timestamp", None),
-                "votes": idea.get("votes", 0),
+                "votes": idea.get("votes", [0, 0]),
             }
         )
 
@@ -193,8 +197,49 @@ def get_user_name_from_id(client, user_id):
         return user_id
 
 
-def update_votes(idea_id):
-    pass
+def update_votes(idea_id, upvote_count, downvote_count):
+    """
+    Update the votes count for an idea
+
+    Args:
+        idea_id: The ID of the idea to update
+        upvote_count: The number of upvotes
+        downvote_count: The number of downvotes
+    """
+    if not firebase_admin._apps:
+        initialize_firebase()
+
+    # Get a reference to the idea
+    ref = db.reference(f"/ideas/{idea_id}")
+
+    # Update the votes
+    ref.update({"votes": [upvote_count, downvote_count]})
+
+    return True
+
+
+def get_idea_by_timestamp(timestamp):
+    """
+    Find an idea by the Slack message timestamp
+
+    Args:
+        timestamp: The timestamp of the Slack message
+
+    Returns:
+        The idea data and its ID, or None if not found
+    """
+    if not firebase_admin._apps:
+        initialize_firebase()
+
+    # Get all ideas
+    ideas = get_all_ideas_from_firebase()
+
+    # Find the idea with the matching timestamp
+    for idea in ideas:
+        if idea.get("timestamp") == timestamp:
+            return idea
+
+    return None
 
 
 # Initializes your app with your bot token and socket mode handler
@@ -308,7 +353,7 @@ def handle_message(ack, body, client):
     )
     thread_ts = body.get("thread_ts") or body["event"].get("ts", None)
     command_text = body.get("text", "").strip() or body["event"].get("text", "").strip()
-    timestamp = int(float(body["event"].get("ts", time.time())))
+    timestamp = int(float(body["event"].get("ts", None)))
 
     if command_text:
         title, description = extract_idea_from_command(command_text)
@@ -340,6 +385,98 @@ def handle_message(ack, body, client):
             IDEA_SUBMISSION_EMPTY(user_id),
             thread_ts,
         )
+
+
+@app.event("reaction_added")
+def handle_reaction_added(event, client):
+    """Handle reactions added to messages"""
+    # Get the emoji name
+    emoji = event.get("reaction")
+
+    # Check if this is a voting emoji
+    if emoji not in [UPVOTE_EMOJI, DOWNVOTE_EMOJI]:
+        return
+
+    # Get the message timestamp
+    timestamp = event.get("item", {}).get("ts")
+
+    # Find the idea with this message timestamp
+    idea = get_idea_by_timestamp(timestamp)
+
+    if not idea:
+        return
+
+    # Get current reactions count for this message
+    try:
+        channel_id = event.get("item", {}).get("channel")
+        response = client.reactions_get(
+            channel=channel_id, timestamp=timestamp, full=True
+        )
+
+        # Extract message from response
+        message = response.get("message", {})
+        reactions = message.get("reactions", [])
+
+        # Get counts for our voting emojis
+        upvotes = 0
+        downvotes = 0
+
+        for reaction in reactions:
+            if reaction.get("name") == UPVOTE_EMOJI:
+                upvotes = reaction.get("count", 0)
+            elif reaction.get("name") == DOWNVOTE_EMOJI:
+                downvotes = reaction.get("count", 0)
+
+        # Update votes in Firebase
+        update_votes(idea["id"], upvotes, downvotes)
+    except Exception as e:
+        print(f"Error handling reaction: {e}")
+
+
+@app.event("reaction_removed")
+def handle_reaction_removed(event, client):
+    """Handle reactions removed from messages"""
+    # Get the emoji name
+    emoji = event.get("reaction")
+
+    # Check if this is a voting emoji
+    if emoji not in [UPVOTE_EMOJI, DOWNVOTE_EMOJI]:
+        return
+
+    # Get the message timestamp
+    timestamp = event.get("item", {}).get("ts")
+
+    # Find the idea with this message timestamp
+    idea = get_idea_by_timestamp(timestamp)
+
+    if not idea:
+        return
+
+    # Get current reactions count for this message
+    try:
+        channel_id = event.get("item", {}).get("channel")
+        response = client.reactions_get(
+            channel=channel_id, timestamp=timestamp, full=True
+        )
+
+        # Extract message from response
+        message = response.get("message", {})
+        reactions = message.get("reactions", [])
+
+        # Get counts for our voting emojis
+        upvotes = 0
+        downvotes = 0
+
+        for reaction in reactions:
+            if reaction.get("name") == UPVOTE_EMOJI:
+                upvotes = reaction.get("count", 0)
+            elif reaction.get("name") == DOWNVOTE_EMOJI:
+                downvotes = reaction.get("count", 0)
+
+        # Update votes in Firebase
+        update_votes(idea["id"], upvotes, downvotes)
+    except Exception as e:
+        print(f"Error handling reaction removal: {e}")
 
 
 # Register the message handler for PI prefixed messages
