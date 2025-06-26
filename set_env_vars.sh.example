@@ -1,0 +1,6 @@
+#!/bin/bash
+export SLACK_BOT_TOKEN=your-slack-bot-token
+export SLACK_APP_TOKEN=your-slack-app-token
+export SLACK_SIGNING_SECRET=your-slack-signing-secret
+export FIREBASE_URL=your-firebase-url
+export FIREBASE_CREDENTIALS_PATH=your-firebase-credentials-path

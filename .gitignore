@@ -202,3 +202,4 @@ marimo/_lsp/
 __marimo__/
 
 firebase-credentials.json
+set_env_vars.sh

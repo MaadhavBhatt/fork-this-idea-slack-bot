@@ -24,5 +24,9 @@ fi
 echo "Cloning repository..."
 git clone "$REPO_URL" || { echo "Failed to clone repository"; exit 1; }
 
+# Make start.sh executable
+cd "$REPO_DIR"
+chmod +x start.sh
+
 cd ..
 echo "Repository updated successfully."
