@@ -4,4 +4,7 @@
   "editor.formatOnType": true,
   "editor.defaultFormatter": "ms-python.black-formatter",
   "diffEditor.ignoreTrimWhitespace": false,
+  "[markdown]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
+  }
 }
