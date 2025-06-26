@@ -1,0 +1,13 @@
+[Unit]
+Description=Fork This Idea Slack Bot Service
+
+# Replace 'user' with your actual username or the appropriate user that runs the service.
+[Service]
+WorkingDirectory=/home/user/pub/fork-this-idea-slack-bot
+EnvironmentFile=/home/user/.env
+ExecStart=/bin/bash /home/user/pub/fork-this-idea-slack-bot/start.sh
+Restart=on-failure
+RestartSec=10
+
+[Install]
+WantedBy=default.target
