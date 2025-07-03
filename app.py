@@ -7,14 +7,14 @@ from firebase_admin import credentials, db
 
 ENV_VARS_CHECKED = False
 
-SUBCOMMANDS = {
+COMMANDS = {
     "fetch": ["recent", "<user-id>", "all"],
     "count": ["<user-id>"],
     "help": [],
 }
 INVALID_COMMAND = lambda user_id: (
     f"Hi {user_id}! That was an invalid command. Please use one of the following commands: "
-    + ", ".join(SUBCOMMANDS.keys())
+    + ", ".join(COMMANDS.keys())
 )
 IDEA_SUBMISSION_DETAILS = lambda user_id, title, description, timestamp: (
     f"<@{user_id}> submitted an idea *{title}: {description}* at {time.strftime('%Y-%m-%d %H:%M:%S UTC', time.gmtime(timestamp))}"
@@ -236,9 +236,25 @@ def send_channel_message(client, channel_id, message, thread_ts=None):
     )
 
 
-def handle_subcommand(subcommand, user_id, client, channel_id, thread_ts=None):
+def handle_command(parts, user_id, client, channel_id, thread_ts=None):
+    # If no command is provided, send an ephemeral message to the user
+    if not len(parts) > 0:
+        send_ephemeral_message(client, user_id, channel_id, INVALID_COMMAND(user_id))
+        return
+
+    command = parts[0]
+    subcommand = parts[1] if len(parts) > 1 else ""
+
+    # If the command or the subcommand is not valid, send an ephemeral message to the user
+    if command not in COMMANDS or (subcommand and subcommand not in COMMANDS[command]):
+        send_ephemeral_message(
+            client, user_id, channel_id, INVALID_COMMAND(user_id), thread_ts
+        )
+        return
+
     message = ""
-    if subcommand == "fetch":
+
+    if command == "fetch":
         # Fetch the most recent idea
         ideas = get_all_ideas_from_firebase()
         if ideas:
@@ -246,14 +262,13 @@ def handle_subcommand(subcommand, user_id, client, channel_id, thread_ts=None):
             message = (
                 f"Latest idea: *{latest_idea['title']}* - {latest_idea['description']}"
             )
-
         else:
             message = "No ideas found."
-    elif subcommand == "count":
+    elif command == "count":
         # Count the number of ideas submitted by the user
         ideas_count = get_idea_count_from_firebase(user_id)
         message = f"You have submitted {ideas_count} ideas."
-    elif subcommand == "help":
+    elif command == "help":
         # Provide help message
         message = HELP_MESSAGE(user_id)
     else:
@@ -278,7 +293,7 @@ def handle_subcommand(subcommand, user_id, client, channel_id, thread_ts=None):
 
 
 @app.command("/forkthisidea")
-def handle_command(ack, body, client):
+def handle_slash_command(ack, body, client):
     ack()
 
     user_id = body.get("user_id", "unknown_user")
@@ -286,16 +301,10 @@ def handle_command(ack, body, client):
     thread_ts = body.get("thread_ts")
     command_text = body.get("text", "").strip()
 
-    # Check if the command text starts with a valid subcommand
     parts = command_text.split()
+    parts = [part.lower().strip() for part in parts if part.strip()]
 
-    if not len(parts) > 0:
-        # If no subcommand is provided, send an ephemeral message to the user
-        send_ephemeral_message(client, user_id, channel_id, INVALID_COMMAND(user_id))
-        return
-
-    subcommand = parts[0].lower().strip()
-    handle_subcommand(subcommand, user_id, client, channel_id, thread_ts)
+    handle_command(parts, user_id, client, channel_id, thread_ts)
 
 
 def handle_message(ack, body, client):
@@ -346,6 +355,7 @@ def handle_message(ack, body, client):
 app.message("PI:")(handle_message)
 app.message("Pi:")(handle_message)
 app.message("pi:")(handle_message)
+app.message("pI:")(handle_message)
 
 
 if __name__ == "__main__":
