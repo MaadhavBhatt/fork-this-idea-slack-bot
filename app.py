@@ -1,5 +1,6 @@
 import os
 import time
+from math import ceil
 from slack_bolt import App
 from slack_bolt.adapter.socket_mode import SocketModeHandler
 import firebase_admin
@@ -8,7 +9,7 @@ from firebase_admin import credentials, db
 ENV_VARS_CHECKED = False
 
 COMMANDS = {
-    "fetch": ["recent", "<user-id>", "all"],
+    "fetch": ["today", "<user-id>", "all"],
     "count": ["<user-id>"],
     "help": [],
 }
@@ -153,6 +154,19 @@ def get_ideas_by_user_from_firebase(user_id):
     ]
 
 
+def get_ideas_by_time_range_from_firebase(start_timetime, end_time=ceil(time.time())):
+    if not firebase_admin._apps:
+        initialize_firebase()
+
+    # Get all ideas
+    ideas = get_all_ideas_from_firebase()
+    # Filter ideas by timestamp
+    filtered_ideas = [
+        idea for idea in ideas if start_timetime <= idea.get("timestamp", 0) <= end_time
+    ]
+    return filtered_ideas
+
+
 def get_idea_count_from_firebase(user_id=None):
     if not firebase_admin._apps:
         initialize_firebase()
@@ -164,18 +178,18 @@ def get_idea_count_from_firebase(user_id=None):
     return len(ideas)
 
 
-def extract_idea_from_command(command_text):
-    if command_text.upper().startswith("PI:"):
-        command_text = command_text[3:].strip()
-    elif command_text.upper().startswith("PI"):
-        command_text = command_text[2:].strip()
+def parse_idea_from_message_text(message_text):
+    if message_text.upper().startswith("PI:"):
+        message_text = message_text[3:].strip()
+    elif message_text.upper().startswith("PI"):
+        message_text = message_text[2:].strip()
 
-    if "|" in command_text:
-        title, description = command_text.split("|", 1)
+    if "|" in message_text:
+        title, description = message_text.split("|", 1)
         title = title.strip()
         description = description.strip()
     else:
-        title = command_text
+        title = message_text
         description = ""
 
     return title, description
@@ -195,6 +209,27 @@ def get_user_name_from_id(client, user_id):
 
 def update_votes(idea_id):
     pass
+
+
+def sort_and_limit_ideas(ideas, limit=10, reverse=True) -> list:
+    """
+    Sorts the ideas by timestamp and limits the number of ideas returned.
+
+    Args:
+        ideas (list): List of ideas to sort.
+        limit (int): Maximum number of ideas to return.
+        reverse (bool): Whether to sort in descending order.
+
+    Returns:
+        list: Sorted and limited list of ideas.
+    """
+    if len(ideas) > 1:
+        ideas = sorted(ideas, key=lambda x: x["timestamp"], reverse=reverse)
+
+    if len(ideas) > limit:
+        ideas = ideas[:limit]
+
+    return ideas
 
 
 # Initializes your app with your bot token and socket mode handler
@@ -237,6 +272,53 @@ def send_channel_message(client, channel_id, message, thread_ts=None):
 
 
 def handle_command(parts, user_id, client, channel_id, thread_ts=None):
+    def _fetch():
+        if subcommand == "today":
+            ideas = get_ideas_by_time_range_from_firebase(
+                start_timetime=int(time.time() - 24 * 60 * 60),
+                end_time=ceil(time.time()),
+            )
+
+            if not ideas:
+                return "No ideas found for today."
+
+            ideas = sort_and_limit_ideas(ideas, limit=10, reverse=True)
+            return "\n".join(
+                f"*{idea['title']}* - {idea['description']}" for idea in ideas
+            )
+
+        elif subcommand == "all":
+            ideas = get_all_ideas_from_firebase()
+
+            if not ideas:
+                return "No ideas found."
+
+            ideas = sort_and_limit_ideas(ideas, limit=10, reverse=True)
+            return "\n".join(
+                f"*{idea['title']}* - {idea['description']} - {idea['timestamp']}"
+                for idea in ideas
+            )
+
+        elif subcommand.startswith("<@") and subcommand.endswith(">"):
+            user_id_to_fetch = subcommand[2:-1]
+            ideas = get_ideas_by_user_from_firebase(user_id_to_fetch)
+
+            if not ideas:
+                return f"No ideas found for user <@{user_id_to_fetch}>."
+
+            ideas = sort_and_limit_ideas(ideas, limit=10, reverse=True)
+            return "\n".join(
+                f"*{idea['title']}* - {idea['description']} - {idea['timestamp']}"
+                for idea in ideas
+            )
+
+        else:
+            return INVALID_COMMAND(user_id)
+
+    def _count():
+        ideas_count = get_idea_count_from_firebase(user_id)
+        return f"You have submitted {ideas_count} ideas."
+
     # If no command is provided, send an ephemeral message to the user
     if not len(parts) > 0:
         send_ephemeral_message(client, user_id, channel_id, INVALID_COMMAND(user_id))
@@ -252,27 +334,13 @@ def handle_command(parts, user_id, client, channel_id, thread_ts=None):
         )
         return
 
-    message = ""
-
     if command == "fetch":
-        # Fetch the most recent idea
-        ideas = get_all_ideas_from_firebase()
-        if ideas:
-            latest_idea = ideas[-1]
-            message = (
-                f"Latest idea: *{latest_idea['title']}* - {latest_idea['description']}"
-            )
-        else:
-            message = "No ideas found."
+        message = _fetch()
     elif command == "count":
-        # Count the number of ideas submitted by the user
-        ideas_count = get_idea_count_from_firebase(user_id)
-        message = f"You have submitted {ideas_count} ideas."
+        message = _count()
     elif command == "help":
-        # Provide help message
         message = HELP_MESSAGE(user_id)
     else:
-        # Invalid subcommand
         message = INVALID_COMMAND(user_id)
 
     client.chat_postEphemeral(
@@ -316,11 +384,11 @@ def handle_message(ack, body, client):
         "channel", "unknown_channel"
     )
     thread_ts = body.get("thread_ts") or body["event"].get("ts", None)
-    command_text = body.get("text", "").strip() or body["event"].get("text", "").strip()
+    message_text = body.get("text", "").strip() or body["event"].get("text", "").strip()
     timestamp = int(float(body["event"].get("ts", time.time())))
 
-    if command_text:
-        title, description = extract_idea_from_command(command_text)
+    if message_text:
+        title, description = parse_idea_from_message_text(message_text)
         user_name = get_user_name_from_id(client, user_id)
         add_idea_to_firebase(user_id, user_name, title, description, timestamp)
 
