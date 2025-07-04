@@ -14,8 +14,11 @@ COMMANDS = {
     "help": [],
 }
 INVALID_COMMAND = lambda user_id: (
-    f"Hi {user_id}! That was an invalid command. Please use one of the following commands: "
-    + ", ".join(COMMANDS.keys())
+    f"Hi <@{user_id}>! That was an invalid command. Please use one of the following commands:\n"
+    f"- '/forkthisidea fetch [today|all|me|@user]': Fetch ideas by different criteria\n"
+    f"- '/forkthisidea count [me|@user]': Count ideas for yourself or others\n"
+    f"- '/forkthisidea help': See detailed help information\n"
+    f"Type '/forkthisidea help' for more information."
 )
 IDEA_SUBMISSION_DETAILS = lambda user_id, title, description, timestamp: (
     f"<@{user_id}> submitted an idea *{title}: {description}* at {time.strftime('%Y-%m-%d %H:%M:%S UTC', time.gmtime(timestamp))}"
@@ -32,7 +35,7 @@ HELP_MESSAGE = lambda user_id: (
     f"- '/forkthisidea fetch' to fetch the most recent idea.\n"
     f"- '/forkthisidea count' to get the count of ideas submitted by you.\n"
     f"- '/forkthisidea help' to see this help message.\n"
-    f"Make sure to use the correct format for your ideas. For example: 'PI: My Idea | This is a description of my idea.'"
+    f"Make sure to use the correct format for your ideas. For example: 'PI: My Idea | This is a description of my idea.'\n"
     f"If you need help, just type '/forkthisidea help'."
 )
 
@@ -404,6 +407,18 @@ def handle_command(parts, user_id, client, channel_id, thread_ts=None):
                 for idea in ideas
             )
 
+        elif subcommand == "me":
+            ideas = get_ideas_by_user_from_firebase(user_id)
+
+            if not ideas:
+                return f"No ideas found for you, <@{user_id}>."
+
+            ideas = sort_and_limit_ideas(ideas, limit=10, reverse=True)
+            return "\n".join(
+                f"*{idea['title']}* - {idea['description']} - {idea['timestamp']}"
+                for idea in ideas
+            )
+
         elif subcommand.startswith("<@") and subcommand.endswith(">"):
             user_id_to_fetch = subcommand[2:-1]
             ideas = get_ideas_by_user_from_firebase(user_id_to_fetch)
@@ -421,8 +436,18 @@ def handle_command(parts, user_id, client, channel_id, thread_ts=None):
             return INVALID_COMMAND(user_id)
 
     def _count():
-        ideas_count = get_idea_count_from_firebase(user_id)
-        return f"You have submitted {ideas_count} ideas."
+        if subcommand.startswith("<@") and subcommand.endswith(">"):
+            user_id_to_count = subcommand[2:-1]
+            ideas_count = get_idea_count_from_firebase(user_id_to_count)
+            return f"<@{user_id_to_count}> has submitted {ideas_count} ideas."
+
+        elif subcommand == "me":
+            ideas_count = get_idea_count_from_firebase(user_id)
+            return f"You have submitted {ideas_count} ideas."
+
+        else:
+            ideas_count = get_idea_count_from_firebase()
+            return f"There are a total of {ideas_count} ideas submitted."
 
     # If no command is provided, send an ephemeral message to the user
     if not len(parts) > 0:
@@ -433,6 +458,7 @@ def handle_command(parts, user_id, client, channel_id, thread_ts=None):
     subcommand = parts[1] if len(parts) > 1 else ""
 
     # If the command or the subcommand is not valid, send an ephemeral message to the user
+    # FIX: This doesn't handle user IDs.
     if command not in COMMANDS or (subcommand and subcommand not in COMMANDS[command]):
         send_ephemeral_message(
             client, user_id, channel_id, INVALID_COMMAND(user_id), thread_ts
