@@ -37,7 +37,19 @@ HELP_MESSAGE = lambda user_id: (
 )
 
 
-def check_environment_variables():
+def check_environment_variables() -> None:
+    """
+    Checks if the required environment variables are set for the application.
+
+    Raises:
+        ValueError: If any of the required environment variables are not set or if the Firebase credentials file does not exist.
+
+    This function checks for the following environment variables:
+        - SLACK_BOT_TOKEN: The token for the Slack bot.
+        - SLACK_APP_TOKEN: The token for the Slack app.
+        - FIREBASE_URL: The URL for the Firebase Realtime Database.
+        - FIREBASE_CREDENTIALS_PATH: The path to the Firebase credentials JSON file.
+    """
     required_vars = [
         "SLACK_BOT_TOKEN",
         "SLACK_APP_TOKEN",
@@ -58,7 +70,14 @@ def check_environment_variables():
     ENV_VARS_CHECKED = True
 
 
-def initialize_firebase():
+def initialize_firebase() -> db:
+    """
+    Initializes Firebase Realtime Database connection using the credentials and URL from environment variables.
+    Checks if the required environment variables are set before initialization.
+
+    Returns:
+        db: A reference to the Firebase Realtime Database.
+    """
     if not ENV_VARS_CHECKED:
         check_environment_variables()
 
@@ -70,7 +89,20 @@ def initialize_firebase():
 
 def add_idea_to_firebase(
     user_id, user_name, title, description, timestamp=int(time.time())
-):
+) -> str:
+    """
+    Adds an idea to Firebase Realtime Database. Initializes Firebase if not already initialized.
+
+    Args:
+        user_id (str): The ID of the user submitting the idea.
+        user_name (str): The name of the user submitting the idea.
+        title (str): The title of the idea.
+        description (str): The description of the idea.
+        timestamp (int, optional): The timestamp of the idea submission. Defaults to the current time.
+
+    Returns:
+        str: The ID of the newly created idea entry in Firebase.
+    """
     if not firebase_admin._apps:
         initialize_firebase()
 
@@ -94,7 +126,17 @@ def add_idea_to_firebase(
     return new_idea_ref.key
 
 
-def get_idea_from_firebase(idea_id):
+def get_idea_from_firebase(idea_id) -> dict:
+    """
+    Retrieves an idea from Firebase by its ID. Initializes Firebase if not already initialized.
+
+    Args:
+        idea_id (str): The ID of the idea to retrieve.
+
+    Returns:
+        dict: A dictionary containing the idea's details, or None if the idea does not exist.
+
+    """
     if not firebase_admin._apps:
         initialize_firebase()
 
@@ -115,7 +157,13 @@ def get_idea_from_firebase(idea_id):
     }
 
 
-def get_all_ideas_from_firebase():
+def get_all_ideas_from_firebase() -> list:
+    """
+    Retrieves all ideas from Firebase. Initializes Firebase if not already initialized.
+
+    Returns:
+        list: A list of all ideas, each represented as a dictionary with keys
+    """
     if not firebase_admin._apps:
         initialize_firebase()
 
@@ -145,7 +193,17 @@ def get_all_ideas_from_firebase():
     return ideas_list
 
 
-def get_ideas_by_user_from_firebase(user_id):
+def get_ideas_by_user_from_firebase(user_id) -> list:
+    """
+    Retrieves all ideas submitted by a specific user from Firebase.
+    Initializes Firebase if not already initialized.
+
+    Args:
+        user_id (str): The user ID to filter ideas by.
+
+    Returns:
+        list: A list of ideas submitted by the specified user.
+    """
     if not firebase_admin._apps:
         initialize_firebase()
 
@@ -154,7 +212,20 @@ def get_ideas_by_user_from_firebase(user_id):
     ]
 
 
-def get_ideas_by_time_range_from_firebase(start_timetime, end_time=ceil(time.time())):
+def get_ideas_by_time_range_from_firebase(
+    start_timetime, end_time=ceil(time.time())
+) -> list:
+    """
+    Retrieves ideas submitted within a specific time range from Firebase.
+    Initializes Firebase if not already initialized.
+
+    Args:
+        start_timetime (int): The start timestamp for filtering ideas.
+        end_time (int, optional): The end timestamp for filtering ideas. Defaults to the current time.
+
+    Returns:
+        list: A list of ideas that fall within the specified time range.
+    """
     if not firebase_admin._apps:
         initialize_firebase()
 
@@ -167,7 +238,17 @@ def get_ideas_by_time_range_from_firebase(start_timetime, end_time=ceil(time.tim
     return filtered_ideas
 
 
-def get_idea_count_from_firebase(user_id=None):
+def get_idea_count_from_firebase(user_id=None) -> int:
+    """
+    Retrieves the count of ideas submitted by a user or all ideas if no user ID is provided.
+    Initializes Firebase if not already initialized.
+
+    Args:
+        user_id (str, optional): The user ID to filter ideas by. If None, it counts all ideas.
+
+    Returns:
+        int: The count of ideas.
+    """
     if not firebase_admin._apps:
         initialize_firebase()
 
@@ -178,7 +259,21 @@ def get_idea_count_from_firebase(user_id=None):
     return len(ideas)
 
 
-def parse_idea_from_message_text(message_text):
+def parse_idea_from_message_text(message_text) -> tuple[str, str]:
+    """
+    Parses the message text to extract the title and description of an idea.
+    The expected format is "PI: Title | Description" or "PI Title | Description".
+    If the message starts with "PI:" or "PI", it will be stripped off, and the rest will be processed.
+    If the message does not contain a pipe ("|"), the entire message will be treated as the title,
+    and the description will be an empty string. Otherwise, the part before the pipe will be the title,
+    and the part after the pipe will be the description.
+
+    Args:
+        message_text (str): The message text to parse.
+
+    Returns:
+        tuple[str, str]: A tuple containing the title and description of the idea.
+    """
     if message_text.upper().startswith("PI:"):
         message_text = message_text[3:].strip()
     elif message_text.upper().startswith("PI"):
@@ -195,7 +290,17 @@ def parse_idea_from_message_text(message_text):
     return title, description
 
 
-def get_user_name_from_id(client, user_id):
+def get_user_name_from_id(client, user_id) -> str:
+    """
+    Fetches the display name or real name of a user from Slack using their user ID.
+
+    Args:
+        client: Slack client instance.
+        user_id (str): The user ID to fetch the name for.
+
+    Returns:
+        str: The display name or real name of the user, or the user ID if not found.
+    """
     try:
         result = client.users_info(user=user_id)
         user = result["user"]
