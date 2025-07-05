@@ -138,7 +138,6 @@ def get_idea_from_firebase(idea_id) -> dict:
 
     Returns:
         dict: A dictionary containing the idea's details, or None if the idea does not exist.
-
     """
     if not firebase_admin._apps:
         initialize_firebase()
@@ -381,6 +380,25 @@ def create_message_blocks(message=None, blocks=None):
 def send_ephemeral_message(
     client, user_id, channel_id, blocks=None, message=None, thread_ts=None
 ):
+    """
+    Sends an ephemeral message visible only to the specified user in a Slack channel.
+
+    An ephemeral message is visible only to the user specified and not to other users
+    in the channel.
+
+    Args:
+        client: The Slack client instance used to send the message.
+        user_id (str): The ID of the user who will see the ephemeral message.
+        channel_id (str): The ID of the channel where the message is sent.
+        blocks (list, optional): Predefined blocks for structured message content.
+            If not provided but message is, blocks will be created from the message.
+        message (str, optional): Text content of the message.
+        thread_ts (str, optional): Timestamp of the thread to send the message in.
+            If omitted, the message will not be sent in a thread.
+
+    Returns:
+        None
+    """
     blocks = create_message_blocks(message, blocks)
     client.chat_postEphemeral(
         user=user_id,
@@ -392,6 +410,21 @@ def send_ephemeral_message(
 
 
 def send_channel_message(client, channel_id, blocks=None, message=None, thread_ts=None):
+    """
+    Sends a message to a Slack channel.
+
+    Args:
+        client: The Slack client instance used to send the message.
+        channel_id (str): The ID of the channel where the message is sent.
+        blocks (list, optional): Predefined blocks for structured message content.
+            If not provided but message is, blocks will be created from the message.
+        message (str, optional): Text content of the message.
+        thread_ts (str, optional): Timestamp of the thread to send the message in.
+            If omitted, the message will not be sent in a thread.
+
+    Returns:
+        None
+    """
     blocks = create_message_blocks(message, blocks)
     client.chat_postMessage(
         channel=channel_id,
