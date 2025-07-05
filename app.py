@@ -13,12 +13,45 @@ COMMANDS = {
     "count": ["<user-id>"],
     "help": [],
 }
+WELCOME_MESSAGE = lambda channel_name: (
+    {
+        "type": "section",
+        "text": {
+            "type": "mrkdwn",
+            "text": f"Hello, people of {channel_name}! I'm the Fork This Idea app.\n"
+            "You can submit your ideas using the command 'PI: <title> | <description>'.\n"
+            "You can use /forkthisidea for more commands.\n"
+            "For more information, type '/forkthisidea help'.",
+        },
+    }
+)
+HELP_MESSAGE = lambda user_id: (
+    {
+        "type": "section",
+        "text": {
+            "type": "mrkdwn",
+            "text": f"Hello <@{user_id}>! Here are the available commands:\n"
+            "- 'PI: <title> | <description>' to submit an idea. You can use 'Pi:' and 'pi:' as well.\n"
+            "- '/forkthisidea fetch [today|all|me|@user]' to fetch ideas by different criteria.\n"
+            "- '/forkthisidea count [me|@user]' to count ideas for yourself or others.\n"
+            "- '/forkthisidea help' to see this help message.\n"
+            "Make sure to use the correct format for your ideas. For example: 'PI: My Idea | This is a description of my idea.'\n"
+            "If you need help, just type '/forkthisidea help'.",
+        },
+    }
+)
 INVALID_COMMAND = lambda user_id: (
-    f"Hi <@{user_id}>! That was an invalid command. Please use one of the following commands:\n"
-    f"- '/forkthisidea fetch [today|all|me|@user]': Fetch ideas by different criteria\n"
-    f"- '/forkthisidea count [me|@user]': Count ideas for yourself or others\n"
-    f"- '/forkthisidea help': See detailed help information\n"
-    f"Type '/forkthisidea help' for more information."
+    {
+        "type": "section",
+        "text": {
+            "type": "mrkdwn",
+            "text": f"Hi <@{user_id}>! That was an invalid command. Please use one of the following commands:\n"
+            "- '/forkthisidea fetch [today|all|me|@user]': Fetch ideas by different criteria\n"
+            "- '/forkthisidea count [me|@user]': Count ideas for yourself or others\n"
+            "- '/forkthisidea help': See detailed help information\n"
+            "Type '/forkthisidea help' for more information.",
+        },
+    }
 )
 IDEA_SUBMISSION_DETAILS = lambda user_id, title, description, timestamp: (
     f"<@{user_id}> submitted an idea *{title}: {description}* at {time.strftime('%Y-%m-%d %H:%M:%S UTC', time.gmtime(timestamp))}"
@@ -28,15 +61,6 @@ IDEA_SUBMISSION_SUCCESS = lambda user_id: (
 )
 IDEA_SUBMISSION_EMPTY = lambda user_id: (
     f"Hello <@{user_id}>! Please provide an idea with your command."
-)
-HELP_MESSAGE = lambda user_id: (
-    f"Hello <@{user_id}>! Here are the available commands:\n"
-    f"- 'PI: <title> | <description>' to submit an idea. You can use 'Pi:' and 'pi:' as well.\n"
-    f"- '/forkthisidea fetch' to fetch the most recent idea.\n"
-    f"- '/forkthisidea count' to get the count of ideas submitted by you.\n"
-    f"- '/forkthisidea help' to see this help message.\n"
-    f"Make sure to use the correct format for your ideas. For example: 'PI: My Idea | This is a description of my idea.'\n"
-    f"If you need help, just type '/forkthisidea help'."
 )
 
 
@@ -510,7 +534,7 @@ def handle_command(parts, user_id, client, channel_id, thread_ts=None):
             client=client,
             user_id=user_id,
             channel_id=channel_id,
-            message=INVALID_COMMAND(user_id),
+            blocks=INVALID_COMMAND(user_id),
         )
         return
 
@@ -538,20 +562,13 @@ def handle_command(parts, user_id, client, channel_id, thread_ts=None):
     else:
         message = INVALID_COMMAND(user_id)
 
-    client.chat_postEphemeral(
-        user=user_id,
-        channel=channel_id,
+    send_ephemeral_message(
+        client=client,
+        user_id=user_id,
+        channel_id=channel_id,
+        blocks=message if isinstance(message, dict) else None,
+        message=message if isinstance(message, str) else None,
         thread_ts=thread_ts,
-        blocks=[
-            {
-                "type": "section",
-                "text": {
-                    "type": "mrkdwn",
-                    "text": f"{message}",
-                },
-            }
-        ],
-        text=message,
     )
 
 
