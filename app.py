@@ -344,37 +344,59 @@ def sort_and_limit_ideas(ideas, limit=10, reverse=True) -> list:
 app = App(token=os.environ.get("SLACK_BOT_TOKEN"))
 
 
-def send_ephemeral_message(client, user_id, channel_id, message, thread_ts=None):
+def create_message_blocks(message=None, blocks=None):
+    """
+    Creates a list of message blocks for Slack messages.
+    If both 'message' and 'blocks' are provided, it raises a ValueError.
+    If neither is provided, it raises a ValueError.
+
+    Args:
+        message (str): The message text to include in the blocks.
+        blocks (list): A list of blocks to include in the message.
+
+    Returns:
+        list: A list of blocks to be used in a Slack message.
+    """
+    if message and blocks:
+        raise ValueError("Either 'message' or 'blocks' must be provided, but not both.")
+    elif not message and not blocks:
+        raise ValueError(
+            "Either 'message' or 'blocks' must be provided. Both cannot be empty."
+        )
+
+    if blocks is None:
+        blocks = [
+            {
+                "type": "section",
+                "text": {
+                    "type": "mrkdwn",
+                    "text": f"{message}",
+                },
+            }
+        ]
+
+    return blocks
+
+
+def send_ephemeral_message(
+    client, user_id, channel_id, blocks=None, message=None, thread_ts=None
+):
+    blocks = create_message_blocks(message, blocks)
     client.chat_postEphemeral(
         user=user_id,
         channel=channel_id,
         thread_ts=thread_ts,
-        blocks=[
-            {
-                "type": "section",
-                "text": {
-                    "type": "mrkdwn",
-                    "text": f"{message}",
-                },
-            }
-        ],
+        blocks=blocks,
         text=f"{message}",
     )
 
 
-def send_channel_message(client, channel_id, message, thread_ts=None):
+def send_channel_message(client, channel_id, blocks=None, message=None, thread_ts=None):
+    blocks = create_message_blocks(message, blocks)
     client.chat_postMessage(
         channel=channel_id,
         thread_ts=thread_ts,
-        blocks=[
-            {
-                "type": "section",
-                "text": {
-                    "type": "mrkdwn",
-                    "text": f"{message}",
-                },
-            }
-        ],
+        blocks=blocks,
         text=message,
     )
 
@@ -451,7 +473,12 @@ def handle_command(parts, user_id, client, channel_id, thread_ts=None):
 
     # If no command is provided, send an ephemeral message to the user
     if not len(parts) > 0:
-        send_ephemeral_message(client, user_id, channel_id, INVALID_COMMAND(user_id))
+        send_ephemeral_message(
+            client=client,
+            user_id=user_id,
+            channel_id=channel_id,
+            message=INVALID_COMMAND(user_id),
+        )
         return
 
     command = parts[0]
@@ -461,7 +488,11 @@ def handle_command(parts, user_id, client, channel_id, thread_ts=None):
     # FIX: This doesn't handle user IDs.
     if command not in COMMANDS or (subcommand and subcommand not in COMMANDS[command]):
         send_ephemeral_message(
-            client, user_id, channel_id, INVALID_COMMAND(user_id), thread_ts
+            client=client,
+            user_id=user_id,
+            channel_id=channel_id,
+            message=INVALID_COMMAND(user_id),
+            thread_ts=thread_ts,
         )
         return
 
@@ -525,28 +556,28 @@ def handle_message(ack, body, client):
 
         # Send a message to the channel with the idea submission
         send_channel_message(
-            client,
-            channel_id,
-            IDEA_SUBMISSION_DETAILS(user_id, title, description, timestamp),
-            thread_ts,
+            client=client,
+            channel_id=channel_id,
+            message=IDEA_SUBMISSION_DETAILS(user_id, title, description, timestamp),
+            thread_ts=thread_ts,
         )
 
         # Send an ephemeral message to the user who submitted the idea
         send_ephemeral_message(
-            client,
-            user_id,
-            channel_id,
-            IDEA_SUBMISSION_SUCCESS(user_id),
-            thread_ts,
+            client=client,
+            user_id=user_id,
+            channel_id=channel_id,
+            message=IDEA_SUBMISSION_SUCCESS(user_id),
+            thread_ts=thread_ts,
         )
     else:
         # If no command text is provided, send an ephemeral message to the user
         send_ephemeral_message(
-            client,
-            user_id,
-            channel_id,
-            IDEA_SUBMISSION_EMPTY(user_id),
-            thread_ts,
+            client=client,
+            user_id=user_id,
+            channel_id=channel_id,
+            message=IDEA_SUBMISSION_EMPTY(user_id),
+            thread_ts=thread_ts,
         )
 
 
