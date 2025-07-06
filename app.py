@@ -62,6 +62,47 @@ IDEA_SUBMISSION_SUCCESS = lambda user_id: (
 IDEA_SUBMISSION_EMPTY = lambda user_id: (
     f"Hello <@{user_id}>! Please provide an idea with your command."
 )
+IDEA_DETAILS = lambda idea: (
+    [
+        {
+            "type": "header",
+            "text": {"type": "plain_text", "text": f"{idea.title}", "emoji": True},
+        },
+        {
+            "type": "section",
+            "text": {
+                "type": "mrkdwn",
+                "text": f"{idea.description}",
+            },
+        },
+        {
+            "type": "context",
+            "elements": [
+                {
+                    "type": "mrkdwn",
+                    "text": f"Submitted by <@{idea.user_id}> "
+                    f"on {time.strftime('%Y-%m-%d %H:%M:%S UTC', time.gmtime(idea.timestamp))}] "
+                    f"with {idea.votes.upvotes} upvotes and {idea.votes.downvotes} downvotes",
+                }
+            ],
+        },
+        {
+            "type": "section",
+            "text": {"type": "mrkdwn", "text": "See this idea on the web"},
+            "accessory": {
+                "type": "button",
+                "text": {
+                    "type": "plain_text",
+                    "text": f"{idea.title.split()[:1] or idea.title.split()[0]} ...",
+                },
+                "value": "click_me_123",  # TODO: Figure out what this does
+                "url": "https://google.com",  # TODO: Link to the site with a query parameter for the idea ID
+                "action_id": f"see idea {idea.id}",
+            },
+        },
+        {"type": "divider"},
+    ]
+)
 
 UPVOTE_EMOJIS: set[str] = {":thumbsup:", ":upvote:"}
 DOWNVOTE_EMOJIS: set[str] = {":thumbsdown:", ":downvote:"}
