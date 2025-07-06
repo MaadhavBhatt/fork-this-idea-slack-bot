@@ -63,6 +63,9 @@ IDEA_SUBMISSION_EMPTY = lambda user_id: (
     f"Hello <@{user_id}>! Please provide an idea with your command."
 )
 
+UPVOTE_EMOJIS: set[str] = {":thumbsup:", ":upvote:"}
+DOWNVOTE_EMOJIS: set[str] = {":thumbsdown:", ":downvote:"}
+
 
 def check_environment_variables() -> None:
     """
@@ -341,8 +344,31 @@ def get_user_name_from_id(client, user_id) -> str:
         return user_id
 
 
-def update_votes(idea_id):
-    pass
+def update_votes(idea_id: str, votes_change: int = 1) -> bool:
+    """
+    Updates the vote count for a specific idea in Firebase by the specified amount.
+    Initializes Firebase if not already initialized.
+
+    Args:
+        idea_id (str): The ID of the idea to update votes for.
+        votes_change (int): The amount to change the votes by (positive or negative). Default is 1.
+
+    Returns:
+        bool: True if the update was successful, False otherwise.
+    """
+    if not firebase_admin._apps:
+        initialize_firebase()
+
+    idea_ref = db.reference(f"/ideas/{idea_id}")
+    idea_data = idea_ref.get()
+
+    if idea_data is None:
+        return False
+
+    # Update the votes count by the specified amount
+    new_votes = idea_data.get("votes", 0) + votes_change
+    idea_ref.update({"votes": new_votes})
+    return True
 
 
 def sort_and_limit_ideas(ideas, limit=10, reverse=True) -> list:
@@ -631,6 +657,68 @@ def handle_message(ack, body, client):
         )
 
 
+def handle_reaction(ack, body, client):
+    ack()
+
+    event = body["event"]
+    reaction = event.get("reaction", "")
+    user_id = event.get("user", "unknown_user")
+    item = event.get("item", {})
+
+    if item.get("type") != "message":
+        return
+
+    channel_id = item.get("channel")
+    message_ts = item.get("ts")
+
+    # If the reaction is not an upvote or downvote, ignore it
+    if reaction not in UPVOTE_EMOJIS and reaction not in DOWNVOTE_EMOJIS:
+        return
+
+    try:
+        # Get the message that was reacted to
+        # Read https://api.slack.com/methods/conversations.history#single-message for details
+        result = client.conversations_history(
+            channel=channel_id, oldest=message_ts, inclusive=True, limit=1
+        )
+
+        if not result["messages"]:
+            return
+
+        message = result["messages"][0]
+        message_text = message.get("text", "")
+        timestamp = int(float(message.get("ts", None)))
+
+        if not message_text.upper().startswith(
+            "PI:"
+        ) and not message_text.upper().startswith("PI"):
+            return
+
+        ideas = get_ideas_by_time_range_from_firebase(
+            start_timetime=timestamp, end_time=timestamp
+        )
+        if not ideas:
+            return
+
+        idea_id = ideas[0]["id"]
+        assert ideas[0]["user_id"] == user_id, "User ID mismatch for idea submission."
+        assert (
+            ideas[0]["title"],
+            ideas[0]["description"],
+        ) == parse_idea_from_message_text(
+            message_text
+        ), "Title and description mismatch for idea submission."
+
+        # Update votes based on reaction
+        if reaction in UPVOTE_EMOJIS:
+            update_votes(idea_id, 1)
+        elif reaction in DOWNVOTE_EMOJIS:
+            update_votes(idea_id, -1)
+
+    except Exception as e:
+        print(f"Error handling reaction: {e}")
+
+
 # Initializes your app with your bot token and socket mode handler
 app = App(token=os.environ.get("SLACK_BOT_TOKEN"))
 
@@ -641,6 +729,9 @@ app.message("pi:")(handle_message)
 app.message("pI:")(handle_message)
 
 app.command("/forkthisidea")(handle_slash_command)
+
+app.event("reaction_added")(handle_reaction)
+app.event("reaction_removed")(handle_reaction)
 
 
 if __name__ == "__main__":
