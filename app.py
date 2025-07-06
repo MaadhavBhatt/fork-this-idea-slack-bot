@@ -9,7 +9,7 @@ from firebase_admin import credentials, db
 ENV_VARS_CHECKED = False
 
 COMMANDS = {
-    "fetch": ["today", "<user-id>", "all"],
+    "fetch": ["today", "<user-id>", "all", "me"],
     "count": ["<user-id>"],
     "help": [],
 }
@@ -143,7 +143,10 @@ def add_idea_to_firebase(
         "title": title,
         "description": description,
         "timestamp": timestamp,
-        "votes": 0,
+        "votes": {
+            "upvotes": 0,
+            "downvotes": 0,
+        },
     }
 
     # Push data (creates a new entry with auto-generated ID)
@@ -363,10 +366,6 @@ def sort_and_limit_ideas(ideas, limit=10, reverse=True) -> list:
     return ideas
 
 
-# Initializes your app with your bot token and socket mode handler
-app = App(token=os.environ.get("SLACK_BOT_TOKEN"))
-
-
 def create_message_blocks(message=None, blocks=None):
     """
     Creates a list of message blocks for Slack messages.
@@ -397,6 +396,8 @@ def create_message_blocks(message=None, blocks=None):
                 },
             }
         ]
+    elif isinstance(blocks, dict):
+        blocks = [blocks]
 
     return blocks
 
@@ -548,31 +549,30 @@ def handle_command(parts, user_id, client, channel_id, thread_ts=None):
             client=client,
             user_id=user_id,
             channel_id=channel_id,
-            message=INVALID_COMMAND(user_id),
+            blocks=INVALID_COMMAND(user_id),
             thread_ts=thread_ts,
         )
         return
 
     if command == "fetch":
-        message = _fetch()
+        response = _fetch()
     elif command == "count":
-        message = _count()
+        response = _count()
     elif command == "help":
-        message = HELP_MESSAGE(user_id)
+        response = HELP_MESSAGE(user_id)
     else:
-        message = INVALID_COMMAND(user_id)
+        response = INVALID_COMMAND(user_id)
 
     send_ephemeral_message(
         client=client,
         user_id=user_id,
         channel_id=channel_id,
-        blocks=message if isinstance(message, dict) else None,
-        message=message if isinstance(message, str) else None,
+        blocks=response if isinstance(response, dict) else None,
+        message=response if isinstance(response, str) else None,
         thread_ts=thread_ts,
     )
 
 
-@app.command("/forkthisidea")
 def handle_slash_command(ack, body, client):
     ack()
 
@@ -631,11 +631,16 @@ def handle_message(ack, body, client):
         )
 
 
+# Initializes your app with your bot token and socket mode handler
+app = App(token=os.environ.get("SLACK_BOT_TOKEN"))
+
 # Register the message handler for PI prefixed messages
 app.message("PI:")(handle_message)
 app.message("Pi:")(handle_message)
 app.message("pi:")(handle_message)
 app.message("pI:")(handle_message)
+
+app.command("/forkthisidea")(handle_slash_command)
 
 
 if __name__ == "__main__":
