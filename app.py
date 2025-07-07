@@ -1,5 +1,6 @@
 import os
 import time
+from typing import Optional
 from math import ceil
 from slack_bolt import App
 from slack_bolt.adapter.socket_mode import SocketModeHandler
@@ -259,7 +260,7 @@ def get_all_ideas_from_firebase() -> list:
                 "title": idea["title"],
                 "description": idea["description"],
                 "timestamp": idea.get("timestamp", None),
-                "votes": idea.get("votes", 0),
+                "votes": idea.get("votes", {"upvotes": 0, "downvotes": 0}),
             }
         )
 
@@ -385,18 +386,33 @@ def get_user_name_from_id(client, user_id) -> str:
         return user_id
 
 
-def update_votes(idea_id: str, votes_change: int = 1) -> bool:
+def update_votes(
+    idea_id: str,
+    votes: Optional[tuple[int]] = None,
+    votes_change: Optional[tuple[int]] = None,
+) -> bool:
     """
     Updates the vote count for a specific idea in Firebase by the specified amount.
+    Validates the input to ensure that either `votes` or `votes_change` is provided, but not both.
     Initializes Firebase if not already initialized.
 
     Args:
         idea_id (str): The ID of the idea to update votes for.
-        votes_change (int): The amount to change the votes by (positive or negative). Default is 1.
+        votes (Optional[tuple[int]]): A tuple containing the new upvotes and downvotes.
+            If provided, it will replace the current votes.
+        votes_change (Optional[tuple[int]]): A dictionary containing the change in upvotes and downvotes.
+            If provided, it will update the current votes by the specified amounts.
+        If neither is provided, a ValueError will be raised.
+        If both are provided, a ValueError will be raised.
 
     Returns:
         bool: True if the update was successful, False otherwise.
     """
+    if votes is None and votes_change is None:
+        raise ValueError("Either 'votes' or 'votes_change' must be provided.")
+    elif votes is not None and votes_change is not None:
+        raise ValueError("Only one of 'votes' or 'votes_change' can be provided.")
+
     if not firebase_admin._apps:
         initialize_firebase()
 
@@ -406,8 +422,17 @@ def update_votes(idea_id: str, votes_change: int = 1) -> bool:
     if idea_data is None:
         return False
 
+    if votes:
+        upvotes, downvotes = votes
+    elif votes_change:
+        upvotes = idea_data["votes"].get("upvotes", 0) + votes_change[0]
+        downvotes = idea_data["votes"].get("downvotes", 0) + votes_change[1]
+
     # Update the votes count by the specified amount
-    new_votes = idea_data.get("votes", 0) + votes_change
+    new_votes = {
+        "upvotes": upvotes,
+        "downvotes": downvotes,
+    }
     idea_ref.update({"votes": new_votes})
     return True
 
