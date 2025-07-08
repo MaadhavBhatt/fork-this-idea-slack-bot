@@ -105,8 +105,8 @@ IDEA_DETAILS = lambda idea: (
     ]
 )
 
-UPVOTE_EMOJIS: set[str] = {":thumbsup:", ":upvote:"}
-DOWNVOTE_EMOJIS: set[str] = {":thumbsdown:", ":downvote:"}
+UPVOTE_EMOJIS: set[str] = {"thumbsup", "upvote"}
+DOWNVOTE_EMOJIS: set[str] = {"thumbsdown", "downvote"}
 
 
 def check_environment_variables() -> None:
@@ -741,6 +741,8 @@ def handle_reaction(ack, body, client):
     if reaction not in UPVOTE_EMOJIS and reaction not in DOWNVOTE_EMOJIS:
         return
 
+    sign = 1 if event["type"] == "reaction_added" else -1
+
     try:
         # Get the message that was reacted to
         # Read https://api.slack.com/methods/conversations.history#single-message for details
@@ -777,9 +779,9 @@ def handle_reaction(ack, body, client):
 
         # Update votes based on reaction
         if reaction in UPVOTE_EMOJIS:
-            update_votes(idea_id, 1)
+            update_votes(idea_id, votes_change=(1 * sign, 0))
         elif reaction in DOWNVOTE_EMOJIS:
-            update_votes(idea_id, -1)
+            update_votes(idea_id, votes_change=(0, 1 * sign))
 
     except Exception as e:
         print(f"Error handling reaction: {e}")
