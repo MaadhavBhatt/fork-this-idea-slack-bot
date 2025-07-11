@@ -1,6 +1,7 @@
 import os
 import time
 from typing import Optional
+from itertools import chain
 from math import ceil
 from slack_bolt import App
 from slack_bolt.adapter.socket_mode import SocketModeHandler
@@ -67,13 +68,14 @@ IDEA_DETAILS = lambda idea: (
     [
         {
             "type": "header",
-            "text": {"type": "plain_text", "text": f"{idea.title}", "emoji": True},
+            "text": {"type": "plain_text", "text": f"{idea['title']}", "emoji": True},
+            "block_id": f"header_block_{idea['id']}",
         },
         {
             "type": "section",
             "text": {
                 "type": "mrkdwn",
-                "text": f"{idea.description}",
+                "text": f"{idea['description']}",
             },
         },
         {
@@ -81,25 +83,26 @@ IDEA_DETAILS = lambda idea: (
             "elements": [
                 {
                     "type": "mrkdwn",
-                    "text": f"Submitted by <@{idea.user_id}> "
-                    f"on {time.strftime('%Y-%m-%d %H:%M:%S UTC', time.gmtime(idea.timestamp))}] "
-                    f"with {idea.votes.upvotes} upvotes and {idea.votes.downvotes} downvotes",
+                    "text": f"Submitted by <@{idea['user_id']}> "
+                    f"on {time.strftime('%Y-%m-%d %H:%M:%S UTC', time.gmtime(idea['timestamp']))} "
+                    f"with {idea['votes']['upvotes']} upvotes and {idea['votes']['downvotes']} downvotes",
                 }
             ],
         },
         {
-            "type": "section",
-            "text": {"type": "mrkdwn", "text": "See this idea on the web"},
-            "accessory": {
-                "type": "button",
-                "text": {
-                    "type": "plain_text",
-                    "text": f"{idea.title.split()[:1] or idea.title.split()[0]} ...",
+            "type": "actions",
+            "block_id": f"link_action_block_{idea['id']}",
+            "elements": [
+                {
+                    "type": "button",
+                    "text": {
+                        "type": "plain_text",
+                        "text": f"{idea['title'].split()[:1] or idea['title'].split()[0]} ...",
+                    },
+                    "url": "https://google.com",  # TODO: Link to the site with a query parameter for the idea ID
+                    "action_id": f"action_{idea['id']}",
                 },
-                "value": "click_me_123",  # TODO: Figure out what this does
-                "url": "https://google.com",  # TODO: Link to the site with a query parameter for the idea ID
-                "action_id": f"see idea {idea.id}",
-            },
+            ],
         },
         {"type": "divider"},
     ]
@@ -451,6 +454,9 @@ def sort_and_limit_ideas(ideas, limit=10, reverse=True) -> list:
     Returns:
         list: Sorted and limited list of ideas.
     """
+    if not ideas:
+        return []
+
     if len(ideas) > 1:
         ideas = sorted(ideas, key=lambda x: x["timestamp"], reverse=reverse)
 
@@ -555,59 +561,27 @@ def send_channel_message(client, channel_id, blocks=None, message=None, thread_t
 
 def handle_command(parts, user_id, client, channel_id, thread_ts=None):
     def _fetch():
+        if subcommand not in COMMANDS["fetch"]:
+            return INVALID_COMMAND(user_id)
+
         if subcommand == "today":
             ideas = get_ideas_by_time_range_from_firebase(
                 start_timetime=int(time.time() - 24 * 60 * 60),
                 end_time=ceil(time.time()),
             )
 
-            if not ideas:
-                return "No ideas found for today."
-
-            ideas = sort_and_limit_ideas(ideas, limit=10, reverse=True)
-            return "\n".join(
-                f"*{idea['title']}* - {idea['description']}" for idea in ideas
-            )
-
         elif subcommand == "all":
             ideas = get_all_ideas_from_firebase()
 
-            if not ideas:
-                return "No ideas found."
-
-            ideas = sort_and_limit_ideas(ideas, limit=10, reverse=True)
-            return "\n".join(
-                f"*{idea['title']}* - {idea['description']} - {idea['timestamp']}"
-                for idea in ideas
-            )
-
         elif subcommand == "me":
             ideas = get_ideas_by_user_from_firebase(user_id)
-
-            if not ideas:
-                return f"No ideas found for you, <@{user_id}>."
-
-            ideas = sort_and_limit_ideas(ideas, limit=10, reverse=True)
-            return "\n".join(
-                f"*{idea['title']}* - {idea['description']} - {idea['timestamp']}"
-                for idea in ideas
-            )
 
         elif subcommand.startswith("<@") and subcommand.endswith(">"):
             user_id_to_fetch = subcommand[2:-1]
             ideas = get_ideas_by_user_from_firebase(user_id_to_fetch)
 
-            if not ideas:
-                return f"No ideas found for user <@{user_id_to_fetch}>."
-
-            ideas = sort_and_limit_ideas(ideas, limit=10, reverse=True)
-            return "\n".join(
-                f"*{idea['title']}* - {idea['description']} - {idea['timestamp']}"
-                for idea in ideas
-            )
-
-        else:
-            return INVALID_COMMAND(user_id)
+        ideas = sort_and_limit_ideas(ideas, limit=10, reverse=True)
+        return ideas
 
     def _count():
         if subcommand.startswith("<@") and subcommand.endswith(">"):
@@ -649,7 +623,7 @@ def handle_command(parts, user_id, client, channel_id, thread_ts=None):
         return
 
     if command == "fetch":
-        response = _fetch()
+        response = list(chain.from_iterable(IDEA_DETAILS(idea) for idea in _fetch()))
     elif command == "count":
         response = _count()
     elif command == "help":
@@ -661,7 +635,7 @@ def handle_command(parts, user_id, client, channel_id, thread_ts=None):
         client=client,
         user_id=user_id,
         channel_id=channel_id,
-        blocks=response if isinstance(response, dict) else None,
+        blocks=response if isinstance(response, (dict, list)) else None,
         message=response if isinstance(response, str) else None,
         thread_ts=thread_ts,
     )
