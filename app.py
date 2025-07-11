@@ -228,6 +228,8 @@ def get_idea_from_firebase(idea_id) -> dict:
         "user_id": idea_data["user_id"],
         "title": idea_data["title"],
         "description": idea_data["description"],
+        "timestamp": idea_data.get("timestamp", None),
+        "votes": idea_data.get("votes", {"upvotes": 0, "downvotes": 0}),
     }
 
 
