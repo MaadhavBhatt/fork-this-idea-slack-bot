@@ -68,14 +68,18 @@ IDEA_DETAILS = lambda idea: (
     [
         {
             "type": "header",
-            "text": {"type": "plain_text", "text": f"{idea['title']}", "emoji": True},
-            "block_id": f"header_block_{idea['id']}",
+            "text": {
+                "type": "plain_text",
+                "text": f"{idea.get('title')}",
+                "emoji": True,
+            },
+            "block_id": f"header_block_{idea.get('id')}",
         },
         {
             "type": "section",
             "text": {
                 "type": "mrkdwn",
-                "text": f"{idea['description']}",
+                "text": f"{idea.get('description')}",
             },
         },
         {
@@ -83,24 +87,24 @@ IDEA_DETAILS = lambda idea: (
             "elements": [
                 {
                     "type": "mrkdwn",
-                    "text": f"Submitted by <@{idea['user_id']}> "
-                    f"on {time.strftime('%Y-%m-%d %H:%M:%S UTC', time.gmtime(idea['timestamp']))} "
-                    f"with {idea['votes']['upvotes']} upvotes and {idea['votes']['downvotes']} downvotes",
+                    "text": f"Submitted by <@{idea.get('user_id')}> "
+                    f"on {time.strftime('%Y-%m-%d %H:%M:%S UTC', time.gmtime(idea.get('timestamp')))} "
+                    f"with {idea.get('votes')['upvotes']} upvotes and {idea.get('votes')['downvotes']} downvotes",
                 }
             ],
         },
         {
             "type": "actions",
-            "block_id": f"link_action_block_{idea['id']}",
+            "block_id": f"link_action_block_{idea.get('id')}",
             "elements": [
                 {
                     "type": "button",
                     "text": {
                         "type": "plain_text",
-                        "text": f"{idea['title'].split()[:1] or idea['title'].split()[0]} ...",
+                        "text": f"{idea.get('title').split()[:1] or idea.get('title').split()[0]} ...",
                     },
                     "url": "https://google.com",  # TODO: Link to the site with a query parameter for the idea ID
-                    "action_id": f"action_{idea['id']}",
+                    "action_id": f"action_{idea.get('id')}",
                 },
             ],
         },
