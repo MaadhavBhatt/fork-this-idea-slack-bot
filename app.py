@@ -51,7 +51,7 @@ HELP_MESSAGE = lambda user_id: [
         "type": "section",
         "text": {
             "type": "mrkdwn",
-            "text": "*Fetch ideas:*\n`/forkthisidea fetch [today|all|me|@user]`\nRetrieve ideas by different criteria.",
+            "text": "*Fetch ideas:*\n`/forkthisidea fetch [today|all|me]`\nRetrieve ideas by different criteria.",
         },
     },
     {
@@ -81,8 +81,8 @@ INVALID_COMMAND = lambda user_id: (
         "text": {
             "type": "mrkdwn",
             "text": f"Hi <@{user_id}>! That was an invalid command. Please use one of the following commands:\n"
-            "- '/forkthisidea fetch [today|all|me|@user]': Fetch ideas by different criteria\n"
-            "- '/forkthisidea count [me|@user]': Count ideas for yourself or others\n"
+            "- '/forkthisidea fetch [today|all|me]': Fetch ideas by different criteria\n"
+            "- '/forkthisidea count [me]': Count ideas for yourself or others\n"
             "- '/forkthisidea help': See detailed help information\n"
             "Type '/forkthisidea help' for more information.",
         },
