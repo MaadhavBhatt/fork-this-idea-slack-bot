@@ -144,8 +144,28 @@ IDEA_DETAILS = lambda idea: (
     ]
 )
 
-UPVOTE_EMOJIS: set[str] = {"thumbsup", "upvote"}
-DOWNVOTE_EMOJIS: set[str] = {"thumbsdown", "downvote"}
+UPVOTE_EMOJIS: set[str] = {
+    "thumbsup",
+    "heart",
+    # Upvotes
+    "upvote",
+    "double-upvote",
+    "upvote5",
+    "upvote3",
+    "8bit-upvote",
+    "super-mega-upvote",
+}
+DOWNVOTE_EMOJIS: set[str] = {
+    "thumbsdown",
+    # Downvotes
+    "downvote",
+    "downdoot",
+    "downvote2",
+    "downvote3",
+    "downvotex",
+    "downvote-red",
+    "double-downvote",
+}
 
 
 def check_environment_variables() -> None:
