@@ -616,7 +616,7 @@ def send_channel_message(client, channel_id, blocks=None, message=None, thread_t
 
 
 def handle_command(parts, user_id, client, channel_id, thread_ts=None):
-    def _fetch():
+    def _fetch(limit=5):
         if subcommand not in COMMANDS["fetch"]:
             return INVALID_COMMAND(user_id)
 
@@ -636,7 +636,7 @@ def handle_command(parts, user_id, client, channel_id, thread_ts=None):
             user_id_to_fetch = subcommand[2:-1]
             ideas = get_ideas_by_user_from_firebase(user_id_to_fetch)
 
-        ideas = sort_and_limit_ideas(ideas, limit=10, reverse=True)
+        ideas = sort_and_limit_ideas(ideas, limit=limit, reverse=True)
         return ideas
 
     def _count():
