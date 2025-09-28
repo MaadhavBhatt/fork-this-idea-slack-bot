@@ -27,21 +27,53 @@ WELCOME_MESSAGE = lambda channel_name: (
         },
     }
 )
-HELP_MESSAGE = lambda user_id: (
+HELP_MESSAGE = lambda user_id: [
+    {
+        "type": "header",
+        "text": {"type": "plain_text", "text": "Fork This Idea - Help", "emoji": True},
+    },
     {
         "type": "section",
         "text": {
             "type": "mrkdwn",
-            "text": f"Hello <@{user_id}>! Here are the available commands:\n"
-            "- 'PI: <title> | <description>' to submit an idea. You can use 'Pi:' and 'pi:' as well.\n"
-            "- '/forkthisidea fetch [today|all|me|@user]' to fetch ideas by different criteria.\n"
-            "- '/forkthisidea count [me|@user]' to count ideas for yourself or others.\n"
-            "- '/forkthisidea help' to see this help message.\n"
-            "Make sure to use the correct format for your ideas. For example: 'PI: My Idea | This is a description of my idea.'\n"
-            "If you need help, just type '/forkthisidea help'.",
+            "text": f"Hello <@{user_id}>! Here are the available commands:",
         },
-    }
-)
+    },
+    {
+        "type": "section",
+        "text": {
+            "type": "mrkdwn",
+            "text": "*Submit an idea:*\n`PI: <title> | <description>`\nYou can use 'Pi:' and 'pi:' as well.",
+        },
+    },
+    {
+        "type": "section",
+        "text": {
+            "type": "mrkdwn",
+            "text": "*Fetch ideas:*\n`/forkthisidea fetch [today|all|me|@user]`\nRetrieve ideas by different criteria.",
+        },
+    },
+    {
+        "type": "section",
+        "text": {
+            "type": "mrkdwn",
+            "text": "*Count ideas:*\n`/forkthisidea count [me|@user]`\nCount ideas for yourself or others.",
+        },
+    },
+    {
+        "type": "section",
+        "text": {
+            "type": "mrkdwn",
+            "text": "*Example:*\n`PI: My Idea | This is a description of my idea.`",
+        },
+    },
+    {
+        "type": "context",
+        "elements": [
+            {"type": "mrkdwn", "text": "Ever need help? Type `/forkthisidea help`"}
+        ],
+    },
+]
 INVALID_COMMAND = lambda user_id: (
     {
         "type": "section",
