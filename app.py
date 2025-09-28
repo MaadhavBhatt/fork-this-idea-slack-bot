@@ -12,7 +12,7 @@ ENV_VARS_CHECKED = False
 
 COMMANDS = {
     "fetch": ["today", "<user-id>", "all", "me"],
-    "count": ["<user-id>"],
+    "count": ["<user-id>", "me"],
     "help": [],
 }
 CONFIG: dict = {}
