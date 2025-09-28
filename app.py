@@ -148,6 +148,8 @@ IDEA_DETAILS = lambda idea: (
 UPVOTE_EMOJIS: set[str] = {
     "thumbsup",
     "heart",
+    "saluting_face",
+    "star",
     # Upvotes
     "upvote",
     "double-upvote",
