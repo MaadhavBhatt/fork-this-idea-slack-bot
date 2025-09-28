@@ -58,7 +58,7 @@ HELP_MESSAGE = lambda user_id: [
         "type": "section",
         "text": {
             "type": "mrkdwn",
-            "text": "*Count ideas:*\n`/forkthisidea count [me|@user]`\nCount ideas for yourself or others.",
+            "text": "*Count ideas:*\n`/forkthisidea count [me]`\nCount ideas for yourself or others.",
         },
     },
     {
