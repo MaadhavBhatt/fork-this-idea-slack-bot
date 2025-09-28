@@ -15,6 +15,7 @@ COMMANDS = {
     "count": ["<user-id>"],
     "help": [],
 }
+CONFIG: dict = {}
 WELCOME_MESSAGE = lambda channel_name: (
     {
         "type": "section",
@@ -188,6 +189,10 @@ def check_environment_variables() -> None:
         "FIREBASE_CREDENTIALS_PATH",
     ]
 
+    optional_vars = [
+        "SEND_CHANNEL_MESSAGE_ON_SUBMISSIONS",
+    ]
+
     for var in required_vars:
         if os.environ.get(var) is None:
             raise ValueError(f"{var} environment variable is not set.")
@@ -196,6 +201,15 @@ def check_environment_variables() -> None:
         raise ValueError(
             "Firebase credentials file not found at path given by FIREBASE_CREDENTIALS_PATH environment variable."
         )
+
+    global CONFIG
+    for var in optional_vars:
+        if os.environ.get(var) is None:
+            os.environ[var] = "false"
+            print(
+                f"Optional environment variable {var} is not set. Defaulting to false."
+            )
+        CONFIG[var.lower()] = os.environ.get(var).lower() == "true"
 
     global ENV_VARS_CHECKED
     ENV_VARS_CHECKED = True
@@ -729,12 +743,13 @@ def handle_message(ack, body, client):
         add_idea_to_firebase(user_id, user_name, title, description, timestamp)
 
         # Send a message to the channel with the idea submission
-        send_channel_message(
-            client=client,
-            channel_id=channel_id,
-            message=IDEA_SUBMISSION_DETAILS(user_id, title, description, timestamp),
-            thread_ts=thread_ts,
-        )
+        if CONFIG.get("send_channel_message_on_submissions"):
+            send_channel_message(
+                client=client,
+                channel_id=channel_id,
+                message=IDEA_SUBMISSION_DETAILS(user_id, title, description, timestamp),
+                thread_ts=thread_ts,
+            )
 
         # Send an ephemeral message to the user who submitted the idea
         send_ephemeral_message(
