@@ -134,7 +134,7 @@ IDEA_DETAILS = lambda idea: (
                     "type": "button",
                     "text": {
                         "type": "plain_text",
-                        "text": f"{idea.get('title').split()[:1] or idea.get('title').split()[0]} ...",
+                        "text": f"{(idea.get('title') or 'Untitled').split()[0]} ...",
                     },
                     "url": "https://google.com",  # TODO: Link to the site with a query parameter for the idea ID
                     "action_id": f"action_{idea.get('id')}",
