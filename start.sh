@@ -8,4 +8,4 @@ else
   pip install -r requirements.txt
 fi
 
-python app.py > ~/ftibot/bot.log 2>&1
+python -m src.app > ~/ftibot/bot.log 2>&1
