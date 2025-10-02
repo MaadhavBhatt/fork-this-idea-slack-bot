@@ -7,22 +7,34 @@ COMMANDS = {
     "fetch": ["today", "<user-id>", "all", "me"],
     "count": ["<user-id>", "me"],
     "help": [],
+    "hello": [],
 }
 CONFIG: dict = {}
 
 # Message templates
-WELCOME_MESSAGE = lambda channel_name: (
+WELCOME_MESSAGE = lambda channel_name: [
+    {
+        "type": "header",
+        "text": {
+            "type": "plain_text",
+            "text": f"Hello, people and bots of {channel_name}! :wave:",
+            "emoji": True,
+        },
+    },
     {
         "type": "section",
         "text": {
             "type": "mrkdwn",
-            "text": f"Hello, people of {channel_name}! I'm the Fork This Idea app.\n"
-            "You can submit your ideas using the command 'PI: <title> | <description>'.\n"
-            "You can use /forkthisidea for more commands.\n"
-            "For more information, type '/forkthisidea help'.",
+            "text": "I'm the Fork This Idea app. I can help you submit and manage this channel's project ideas.\n"
+            "For information on how to use this app, type `/forkthisidea help`.\n",
         },
-    }
-)
+    },
+    {
+        "type": "section",
+        "text": {"type": "mrkdwn", "text": "Happy innovating! :tada:"},
+    },
+]
+
 HELP_MESSAGE = lambda user_id: [
     {
         "type": "header",

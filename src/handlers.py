@@ -15,6 +15,7 @@ from .config import (
     CONFIG,
     INVALID_COMMAND,
     IDEA_DETAILS,
+    WELCOME_MESSAGE,
     HELP_MESSAGE,
     IDEA_SUBMISSION_DETAILS,
     IDEA_SUBMISSION_SUCCESS,
@@ -68,17 +69,8 @@ def handle_command(parts, user_id, client, channel_id, thread_ts=None):
             ideas_count = get_idea_count_from_firebase()
             return f"There are a total of {ideas_count} ideas submitted."
 
-    # If no command is provided, send an ephemeral message to the user
-    if not len(parts) > 0:
-        send_ephemeral_message(
-            client=client,
-            user_id=user_id,
-            channel_id=channel_id,
-            blocks=INVALID_COMMAND(user_id),
-        )
-        return
-
-    command = parts[0]
+    # If no command is provided, send the welcome message
+    command = parts[0] if len(parts) > 0 else "hello"
     subcommand = parts[1] if len(parts) > 1 else ""
 
     # If the command or the subcommand is not valid, send an ephemeral message to the user
@@ -99,6 +91,10 @@ def handle_command(parts, user_id, client, channel_id, thread_ts=None):
         response = _count()
     elif command == "help":
         response = HELP_MESSAGE(user_id)
+    elif command == "hello":
+        channel_info = client.conversations_info(channel=channel_id)
+        channel_name = channel_info["channel"]["name"]
+        response = WELCOME_MESSAGE(channel_name)
     else:
         response = INVALID_COMMAND(user_id)
 
