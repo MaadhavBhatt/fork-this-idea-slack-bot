@@ -39,28 +39,28 @@ HELP_MESSAGE = lambda user_id: [
         "type": "section",
         "text": {
             "type": "mrkdwn",
-            "text": "*Submit an idea:*\n`PI: <title> | <description>`\nYou can use 'Pi:' and 'pi:' as well.",
+            "text": "*Submit an idea*\n`PI: <title> | <description>`\nYou can use 'Pi:' and 'pi:' as well.\n_Example_: `pi: FTI Bot | A Slack bot to store and retrieve ideas.`",
         },
     },
     {
         "type": "section",
         "text": {
             "type": "mrkdwn",
-            "text": "*Fetch ideas:*\n`/forkthisidea fetch [today|all|me]`\nRetrieve ideas by different criteria.",
+            "text": "*Fetch ideas:* Retrieve ideas by different criteria.\n`/forkthisidea fetch [today|all|me]`",
         },
     },
     {
         "type": "section",
         "text": {
             "type": "mrkdwn",
-            "text": "*Count ideas:*\n`/forkthisidea count [me]`\nCount ideas for yourself or others.",
+            "text": "*Count ideas:* Count ideas you've submitted.\n`/forkthisidea count [me]`",
         },
     },
     {
         "type": "section",
         "text": {
             "type": "mrkdwn",
-            "text": "*Example:*\n`PI: My Idea | This is a description of my idea.`",
+            "text": "*Vote* by reacting with upvotes :upvote: or downvotes :downvote: to any `PI:` message",
         },
     },
     {
