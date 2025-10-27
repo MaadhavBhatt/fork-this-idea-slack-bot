@@ -85,18 +85,21 @@ def handle_command(parts, user_id, client, channel_id, thread_ts=None):
         )
         return
 
-    if command == "fetch":
-        response = list(chain.from_iterable(IDEA_DETAILS(idea) for idea in _fetch()))
-    elif command == "count":
-        response = _count()
-    elif command == "help":
-        response = HELP_MESSAGE(user_id)
-    elif command == "hello":
-        channel_info = client.conversations_info(channel=channel_id)
-        channel_name = channel_info["channel"]["name"]
-        response = WELCOME_MESSAGE(channel_name)
-    else:
-        response = INVALID_COMMAND(user_id)
+    match command:
+        case "fetch":
+            response = list(
+                chain.from_iterable(IDEA_DETAILS(idea) for idea in _fetch())
+            )
+        case "count":
+            response = _count()
+        case "help":
+            response = HELP_MESSAGE(user_id)
+        case "hello":
+            channel_info = client.conversations_info(channel=channel_id)
+            channel_name = channel_info["channel"]["name"]
+            response = WELCOME_MESSAGE(channel_name)
+        case _:
+            response = INVALID_COMMAND(user_id)
 
     send_ephemeral_message(
         client=client,
